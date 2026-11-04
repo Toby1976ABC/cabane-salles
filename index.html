@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cabane — Salles</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Cabane">
+<meta name="theme-color" content="#f1ebe1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1613" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<style>
+:root{
+  color-scheme:light;
+  --page:#f1ebe1;--surface:#fdfbf7;--ink:#2b2420;--ink2:#5e534b;--muted:#8d8178;
+  --grid:#e6ded1;--axis:#c9b49a;--border:rgba(116,100,88,.16);--wash:rgba(116,100,88,.08);--beige:#c9b49a;
+  --air:#2a78d6;--compost:#eb6834;--rh:#1baf7a;--co2:#6250d6;--deficit:#eda100;--water:#2a78d6;
+  --froid:#2a78d6;--chauf:#eb6834;--vent:#1baf7a;--neuf:#6250d6;
+  --good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#d03b3b;--inactive:#898781;
+  --good-bg:#e4f5e4;--warn-bg:#fff3d6;--crit-bg:#fbe3e3;--inactive-bg:#eeedea;
+  --brown:#746458;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#1b1613;--surface:#262019;--ink:#f3ece2;--ink2:#cdbfae;--muted:#978a7c;
+    --grid:#36302a;--axis:#5a4f45;--border:rgba(201,180,154,.14);--wash:rgba(201,180,154,.08);--beige:#c9b49a;
+    --air:#3987e5;--compost:#d95926;--rh:#199e70;--co2:#9085e9;--deficit:#c98500;--water:#3987e5;
+    --froid:#3987e5;--chauf:#d95926;--vent:#199e70;--neuf:#9085e9;
+    --good-bg:#12301a;--warn-bg:#3a2d0c;--crit-bg:#3d1515;--inactive-bg:#262624;
+    --brown:#c9b49a;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+body{padding-bottom:calc(64px + env(safe-area-inset-bottom));overscroll-behavior-y:contain}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+h1,h2,h3{margin:0;font-weight:600}
+.hdr{position:sticky;top:0;z-index:5;background:var(--page);padding:calc(10px + env(safe-area-inset-top)) 16px 8px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.hdr .logo{height:38px;width:auto;display:block;flex:none}
+.hdr .logo.dk{display:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .hdr .logo.lt{display:none}:root:not([data-theme="light"]) .hdr .logo.dk{display:block}}
+.hdr h1{font-size:17px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .sub{font-size:12px;color:var(--muted);font-weight:400;display:block}
+.iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--ink2)}
+.iconbtn:active{background:var(--wash)}
+.iconbtn svg{width:22px;height:22px}
+main{padding:12px 16px 8px;max-width:640px;margin:0 auto}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;padding:8px 0 6px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+.tabs button.on{color:var(--brown)}
+.tabs svg{width:24px;height:24px}
+.tabs .badge{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;border-radius:9px;background:var(--crit);color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 5px}
+.seg{display:flex;background:var(--wash);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;padding:6px 0;border-radius:8px;font-size:13px;color:var(--ink2)}
+.seg button.on{background:var(--surface);color:var(--brown);box-shadow:0 1px 2px rgba(0,0,0,.12);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin:0 0 10px}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1;min-width:0}
+.muted{color:var(--muted)}.small{font-size:12px}.ink2{color:var(--ink2)}
+.sec{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 2px 6px}
+/* status list */
+.room{width:100%;text-align:left;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;position:relative}
+.room:active{background:var(--wash)}
+.room .name{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.room .phase{font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room .vals{grid-column:1/-1;display:flex;gap:12px;font-size:13px;color:var(--ink2);flex-wrap:wrap}
+.room .vals b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.room .vals .off{color:var(--crit)}
+.room .diag{grid-column:1/-1;font-size:13px;color:var(--ink2);line-height:1.35}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.chip i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.s-agir{background:var(--crit-bg);color:var(--crit)}
+.s-surv{background:var(--warn-bg);color:#8a5a00}
+.s-ok{background:var(--good-bg);color:#0a6d0a}
+.s-inactif{background:var(--inactive-bg);color:var(--muted)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .s-surv{color:#fab219}:root:not([data-theme="light"]) .s-ok{color:#5fcf5f}}
+.sline{position:absolute;left:0;top:12px;bottom:12px;width:4px;border-radius:0 3px 3px 0}
+.sline.agir{background:var(--crit)}.sline.surv{background:var(--warn)}.sline.ok{background:var(--good)}.sline.inactif{background:var(--inactive)}
+/* rings */
+.rings{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 6px;margin-bottom:10px}
+.ring{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ring svg{width:84px;height:84px}
+.ring .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.ring .u{font-size:10px;color:var(--muted);margin-left:1px;font-weight:500}
+.ring .l{font-size:11px;color:var(--ink2)}
+.ring .sp{font-size:10px;color:var(--muted)}
+/* charts */
+.chart{margin-bottom:10px;padding:10px 10px 6px}
+.chart h3{font-size:14px;display:flex;align-items:baseline;gap:8px;padding:0 4px}
+.chart .tt{font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums;padding:2px 4px 4px;min-height:20px;line-height:1.3}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;padding:4px 4px 0;font-size:11px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:14px;height:0;border-top:2px solid;display:inline-block}
+.legend i.dash{border-top-style:dashed}
+.legend i.bar{height:8px;border:0;border-radius:2px}
+svg.plot{width:100%;height:auto;display:block;touch-action:pan-y}
+.plot text{font-family:inherit;font-size:10px;fill:var(--muted)}
+.plot .grid{stroke:var(--grid);stroke-width:1}
+.plot .axis{stroke:var(--axis);stroke-width:1}
+.plot .line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.plot .sp{fill:none;stroke-width:1.5;stroke-dasharray:4 4;stroke:var(--ink2)}
+.plot .band{fill:var(--rh);opacity:.12}
+.plot .cross{stroke:var(--ink2);stroke-width:1;stroke-dasharray:2 3}
+.plot .dot{stroke:var(--surface);stroke-width:2}
+/* nav between rooms */
+.roomnav{display:flex;align-items:center;gap:6px;margin:0 0 10px}
+.roomnav .pill{flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px}
+.roomnav .pill::-webkit-scrollbar{display:none}
+.roomnav .pill button{padding:6px 11px;border-radius:999px;background:var(--wash);font-size:13px;font-weight:600;color:var(--ink2);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.roomnav .pill button.on{background:var(--brown);color:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .roomnav .pill button.on{color:#1b1613}}
+.roomnav .pill i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.i-agir{background:var(--crit)}.i-surv{background:var(--warn)}.i-ok{background:var(--good)}.i-inactif{background:var(--inactive)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:14px}
+.kv dt{color:var(--ink2)}.kv dd{margin:0;font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.alert{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--border);margin-bottom:8px;align-items:start}
+.alert .sev{width:10px;height:10px;border-radius:50%;margin-top:6px}
+.alert .msg{font-size:14px;line-height:1.35}
+.alert .meta{font-size:12px;color:var(--muted);grid-column:2}
+/* water table */
+table.w{width:100%;border-collapse:collapse;font-size:13px}
+table.w th{font-weight:600;color:var(--muted);font-size:11px;text-align:right;padding:4px 4px;border-bottom:1px solid var(--grid);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+table.w th:first-child,table.w td:first-child{text-align:left;padding-left:2px}
+table.w td{padding:8px 4px;text-align:right;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:top}
+table.w tr:last-child td{border-bottom:0}
+table.w td.rm{font-weight:700;font-size:15px}
+table.w .barwrap{height:5px;border-radius:2px;background:var(--grid);margin-top:4px;overflow:hidden}
+table.w .bar{display:block;height:5px;background:var(--water)}
+table.w tr{cursor:pointer}
+.empty{text-align:center;color:var(--muted);padding:24px 0}
+.err{background:var(--crit-bg);color:var(--crit);padding:10px 12px;border-radius:12px;margin-bottom:10px;font-size:14px}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--grid);border-top-color:var(--ink2);border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.stale{color:var(--crit);font-weight:600}
+.hidden{display:none !important}
+.help{font-size:12px;color:var(--muted);margin:4px 4px 10px}
+.login{max-width:320px;margin:40px auto 0;text-align:center}
+.login img{height:70px;margin-bottom:14px}
+.login h2{font-size:18px;margin-bottom:4px}
+.login p{color:var(--muted);font-size:13px;margin:0 0 18px}
+.login input{width:100%;font:inherit;font-size:20px;text-align:center;letter-spacing:.15em;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);margin-bottom:10px}
+.login button.go{width:100%;padding:12px;border-radius:12px;background:var(--brown);color:#fff;font-weight:600;font-size:15px}
+.login .err{text-align:left}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--brown);font-weight:600;font-size:14px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <button class="iconbtn hidden" id="backBtn" aria-label="Retour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <img class="logo lt" src="data:image/png;base64,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" alt="Cabane &amp; Cie"><img class="logo dk" src="data:image/png;base64,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" alt="Cabane &amp; Cie"><h1 id="title">Salles<span class="sub" id="subtitle">Chargement…</span></h1>
+  <button class="iconbtn" id="refreshBtn" aria-label="Actualiser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg></button>
+</header>
+<main id="main"></main>
+<nav class="tabs" id="tabs">
+  <button data-tab="salles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>Salles</button>
+  <button data-tab="statut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>Statut</button>
+  <button data-tab="alertes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg>Alertes<span class="badge hidden" id="alertBadge"></span></button>
+  <button data-tab="arrosage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z"/></svg>Arrosage</button>
+</nav>
+<script>
+(function(){
+'use strict';
+const qs = new URLSearchParams(location.search);
+let KEY = qs.get('k') || ''; try{ if(KEY) localStorage.setItem('cabane.key',KEY); else KEY=localStorage.getItem('cabane.key')||''; }catch(e){}
+const API = 'https://wiwvsnbsyohjpzbhoxor.supabase.co/functions/v1/mobile';
+const TZ = 'Europe/Paris';
+const $ = s => document.querySelector(s);
+const main = $('#main');
+const fmt = {
+  n: (v, d=0) => (v==null||isNaN(v)) ? '–' : Number(v).toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d}),
+  t: ts => new Date(ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:TZ}),
+  dt: ts => new Date(ts).toLocaleString('fr-FR',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:TZ}),
+  d: ts => new Date(ts).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short',timeZone:TZ}),
+  ago: ts => { const m=Math.round((Date.now()-new Date(ts))/60000); if(m<1) return "à l'instant"; if(m<60) return `il y a ${m} min`; const h=Math.floor(m/60); if(h<48) return `il y a ${h} h`; return `il y a ${Math.floor(h/24)} j`; }
+};
+const esc = s => String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const statusKey = s => ({'Agir':'agir','Surveiller':'surv','OK':'ok'})[s] || 'inactif';
+const statusRank = s => ({'Agir':0,'Surveiller':1,'OK':2})[s] ?? 3;
+const roomOrder = n => (n[0]==='P'?0:1000)+parseInt(n.slice(1),10);
+
+const state = { data:null, view:'salles', room:null, mode:'climat', days:3, loading:false, error:null, lastFetch:0, loginError:'' };
+try { const d=localStorage.getItem('cabane.days'); if(d) state.days=+d; } catch(e){}
+
+// ---------- data ----------
+async function load(force){
+  if(state.loading) return;
+  state.loading=true; render();
+  try{
+    const r = await fetch(`${API}?data=1&k=${encodeURIComponent(KEY)}&days=${state.days}`, {cache:'no-store'});
+    if(r.status===403||r.status===401){ KEY=''; try{localStorage.removeItem('cabane.key');}catch(e){} state.loading=false; state.loginError='Mot de passe incorrect.'; showLogin(); return; }
+    if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||('Erreur '+r.status)); }
+    state.data = await r.json(); state.error=null; state.lastFetch=Date.now();
+  }catch(e){ state.error = e.message || String(e); }
+  state.loading=false; render();
+}
+function series(room){ const s=(state.data&&state.data.series&&state.data.series[room])||[]; return s.map(p=>({t:p[0]*1000,phase:p[1],air:p[2],air_sp:p[3],rh:p[4],rh_min:p[5],rh_max:p[6],co2:p[7],co2_sp:p[8],compost:p[9],cooling:p[10],heating:p[11],fan:p[12],fresh_air:p[13],deficit:p[14],water:p[15],lpm:p[16]})); }
+function rooms(){ return state.data ? state.data.status.map(r=>r.Salle).sort((a,b)=>roomOrder(a)-roomOrder(b)) : []; }
+function statusOf(room){ return state.data && state.data.status.find(r=>r.Salle===room); }
+function openAlerts(){ return state.data ? state.data.alerts.filter(a=>!a['Fin']) : []; }
+
+// ---------- rendering ----------
+function render(){
+  const d = state.data;
+  $('#backBtn').classList.toggle('hidden', !state.room);
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.tab===state.view));
+  const n = openAlerts().length; const badge=$('#alertBadge'); badge.textContent=n; badge.classList.toggle('hidden', !n);
+  const sub = $('#subtitle');
+  if(state.loading && !d) sub.innerHTML = '<span class="spin"></span>';
+  else if(d){ const last = d.status.reduce((m,r)=>r.Heure>m?r.Heure:m,''); const ageMin=(Date.now()-new Date(last))/60000; sub.innerHTML = `Données ${esc(fmt.ago(last))}${ageMin>90?' <span class="stale">· en retard</span>':''}${state.loading?' <span class="spin" style="width:10px;height:10px;vertical-align:middle"></span>':''}`; }
+  else sub.textContent = '';
+  if(!d){ main.innerHTML = state.error ? `<div class="err">${esc(state.error)}</div>` : '<div class="empty">Chargement…</div>'; return; }
+  let html = state.error ? `<div class="err">${esc(state.error)}</div>` : '';
+  if(state.room) { $('#title').firstChild.textContent = `${state.mode==='arrosage'?'Arrosage':'Climat'} ${state.room}`; html += viewRoom(state.room); }
+  else { $('#title').firstChild.textContent = {salles:'Salles',statut:'Statut',alertes:'Alertes',arrosage:'Arrosage'}[state.view]; html += {salles:viewSalles,statut:viewStatut,alertes:viewAlertes,arrosage:viewArrosage}[state.view](); }
+  main.innerHTML = html;
+  bind();
+}
+
+function viewSalles(){
+  const d=state.data;
+  const sorted=[...d.status].sort((a,b)=>roomOrder(a.Salle)-roomOrder(b.Salle));
+  let h='';
+  let lastGroup=null;
+  for(const r of sorted){
+    const g=r.Salle[0];
+    if(g!==lastGroup){ h+=`<div class="sec">${g==='P'?'Salles P — incubation':'Salles H — culture'}</div>`; lastGroup=g; }
+    h+=roomCard(r);
+  }
+  return h;
+}
+function viewStatut(){
+  const d=state.data;
+  const sorted=[...d.status].sort((a,b)=>statusRank(a.Statut)-statusRank(b.Statut)||roomOrder(a.Salle)-roomOrder(b.Salle));
+  const counts=sorted.reduce((o,r)=>{o[r.Statut]=(o[r.Statut]||0)+1;return o;},{});
+  let h = `<div class="help">${['Agir','Surveiller','OK','Inactif'].filter(k=>counts[k]).map(k=>`<span class="chip s-${statusKey(k)}"><i></i>${counts[k]} ${k}</span>`).join(' ')}</div>`;
+  let lastGroup=null;
+  for(const r of sorted){
+    if(r.Statut!==lastGroup){ h+=`<div class="sec">${esc(r.Statut)} (${counts[r.Statut]})</div>`; lastGroup=r.Statut; }
+    h+=roomCard(r);
+  }
+  return h;
+}
+function roomCard(r){
+    const key = r=>r.Statut==='Inactif'?'inactif':statusKey(r.Statut);
+    let h='';
+    const active = r.Statut!=='Inactif';
+    const airOff = active && Math.abs(r['Air °C']-r['Consigne air °C'])>1;
+    const band = (r['Bande HR']||'').match(/^(\d+)[–-](\d+)$/);
+    const rhOff = active && band && (r['HR %']<+band[1]-3 || r['HR %']>+band[2]+3);
+    const co2Off = active && r['Consigne CO₂']>0 && Math.abs(r['CO₂ ppm']-r['Consigne CO₂'])>Math.max(300,.2*r['Consigne CO₂']);
+    const compOff = active && r['Compost °C']>=28;
+    h += `<button class="room" data-room="${r.Salle}"><span class="sline ${key(r)}"></span>
+      <span class="name">${r.Salle}</span>
+      <span class="phase">${esc(r['Phase Fancom']||'')}${r.Stade?` · ${esc(r.Stade)}`:''}</span>
+      <span class="chip s-${key(r)}"><i></i>${esc(r.Statut)}</span>
+      <span class="vals">
+        <span>Air <b class="${airOff?'off':''}">${fmt.n(r['Air °C'],1)}°</b><span class="muted">/${fmt.n(r['Consigne air °C'],1)}</span></span>
+        <span>HR <b class="${rhOff?'off':''}">${fmt.n(r['HR %'])}%</b>${band?`<span class="muted">/${band[1]}–${band[2]}</span>`:''}</span>
+        <span>CO₂ <b class="${co2Off?'off':''}">${fmt.n(r['CO₂ ppm'])}</b>${r['Consigne CO₂']>0?`<span class="muted">/${fmt.n(r['Consigne CO₂'])}</span>`:''}</span>
+        <span>Compost <b class="${compOff?'off':''}">${fmt.n(r['Compost °C'],1)}°</b></span>
+      </span>
+      ${r.Alertes||r['Évaporation']?`<span class="diag">${esc([r['Évaporation'],...String(r.Alertes||'').split(' | ')].filter(Boolean).join(' · '))}</span>`:''}
+    </button>`;
+  return h;
+}
+
+function viewAlertes(){
+  const d=state.data; const open=openAlerts(); const closed=d.alerts.filter(a=>a['Fin']);
+  const sev = g=>({urgent:'var(--crit)',high:'var(--serious)',default:'var(--warn)',low:'var(--muted)'})[g]||'var(--warn)';
+  const sevFr = g=>({urgent:'Urgent',high:'Important',default:'À surveiller',low:'Info'})[g]||g;
+  let h='';
+  h += `<div class="sec">Alertes en cours (${open.length})</div>`;
+  h += open.length ? open.map(a=>`<div class="alert" data-room="${a.Salle}"><span class="sev" style="background:${sev(a['Gravité'])}"></span><div class="msg">${esc(a.Message)}</div><div class="meta">${sevFr(a['Gravité'])} · depuis ${esc(fmt.dt(a['Début']))} · ${a.Envois} envoi${a.Envois>1?'s':''}</div></div>`).join('') : '<div class="empty">Aucune alerte en cours</div>';
+  if(d.equipment&&d.equipment.length){
+    h += `<div class="sec">Équipement (24 h)</div>`;
+    h += d.equipment.map(e=>`<div class="alert" data-room="${e.Salle}"><span class="sev" style="background:${e['Gravité']==='Agir'?'var(--crit)':'var(--warn)'}"></span><div class="msg"><b>${e.Salle}</b> · ${esc(e['Équipement'])} — ${esc(e.Anomalie)}</div><div class="meta">${esc(e.Mesure)} · ${fmt.n(e['Part 24 h %'])} % des 24 h</div></div>`).join('');
+  }
+  if(closed.length){
+    h += `<div class="sec">Résolues (24 h)</div>`;
+    h += closed.map(a=>`<div class="alert" data-room="${a.Salle}" style="opacity:.7"><span class="sev" style="background:var(--good)"></span><div class="msg">${esc(a.Message)}</div><div class="meta">Résolue ${esc(fmt.dt(a['Fin']))}</div></div>`).join('');
+  }
+  h += `<p class="help">Les notifications sont envoyées via ntfy (sujet climat). Contrôle toutes les 15 min, rappel toutes les 6 h tant que l’alerte persiste. <a href="#" id="logout" style="color:var(--brown)">Changer de mot de passe</a></p>`;
+  return h;
+}
+
+function viewArrosage(){
+  const d=state.data; const st=Object.fromEntries(d.status.map(r=>[r.Salle,r]));
+  const rows=[...d.water].sort((a,b)=>roomOrder(a.room)-roomOrder(b.room));
+  const max=Math.max(1,...rows.map(r=>r.d7_l_m2||0));
+  const grp = (pfx,label)=>{
+    const rs=rows.filter(r=>r.room.startsWith(pfx)); if(!rs.length) return '';
+    return `<div class="sec">${label}</div><div class="card" style="padding:6px 10px"><table class="w"><thead><tr><th>Salle</th><th>Dernier</th><th>24 h</th><th>7 j</th><th>Culture</th></tr></thead><tbody>` +
+      rs.map(r=>{ const inactive = st[r.room] && st[r.room].Statut==='Inactif';
+        return `<tr data-room="${r.room}" style="${inactive?'opacity:.55':''}"><td class="rm">${r.room}</td>
+        <td>${r.last_watering?`${fmt.n(r.last_l_m2,1)}<div class="small muted">${esc(fmt.ago(r.last_watering))}</div>`:'<span class="muted">–</span>'}</td>
+        <td>${r.d1_l_m2?fmt.n(r.d1_l_m2,1):'<span class="muted">0</span>'}</td>
+        <td>${fmt.n(r.d7_l_m2,1)}<div class="barwrap"><span class="bar" style="width:${Math.round(100*(r.d7_l_m2||0)/max)}%"></span></div></td>
+        <td>${fmt.n(r.crop_l_m2,1)}</td></tr>`; }).join('') + '</tbody></table></div>';
+  };
+  return `<p class="help">Litres par m² (compteur Fancom). Touchez une salle pour l’historique d’arrosage.</p>` + grp('P','Salles P') + grp('H','Salles H');
+}
+
+// ---------- room detail ----------
+function viewRoom(room){
+  const r=statusOf(room); const s=series(room); const w=(state.data.water||[]).find(x=>x.room===room);
+  const list=rooms(); const idx=list.indexOf(room);
+  let h = `<div class="roomnav"><div class="pill" id="pill">${list.map(x=>{const st=statusOf(x);return `<button data-room="${x}" class="${x===room?'on':''}"><i class="i-${statusKey(st.Statut)}"></i>${x}</button>`;}).join('')}</div></div>`;
+  if(!r) return h+'<div class="empty">Salle inconnue</div>';
+  const active=r.Statut!=='Inactif';
+  if(state.mode==='arrosage') return h+viewRoomWater(r,s,w);
+  h += `<div class="card"><div class="row"><div class="grow"><div style="font-size:15px;font-weight:600">${esc(r['Phase Fancom']||'')}${r.Stade?` <span class="ink2" style="font-weight:400">· ${esc(r.Stade)}</span>`:''}</div>
+      ${r.Alertes||r['Évaporation']?`<div class="small ink2" style="margin-top:4px">${esc([r['Évaporation'],...String(r.Alertes||'').split(' | ')].filter(Boolean).join(' · '))}</div>`:''}</div>
+      <span class="chip s-${statusKey(r.Statut)}"><i></i>${esc(r.Statut)}</span></div></div>`;
+  // rings
+  const band=(r['Bande HR']||'').match(/^(\d+)[–-](\d+)$/);
+  const rings=[
+    ring('Air', r['Air °C'], '°C', 1, 'var(--air)', active?Math.max(0,1-Math.abs(r['Air °C']-r['Consigne air °C'])/2):0, active?`consigne ${fmt.n(r['Consigne air °C'],1)}`:''),
+    ring('Compost', r['Compost °C'], '°C', 1, 'var(--compost)', active?Math.min(1,Math.max(0,(r['Compost °C']-10)/20)):0, active?`Δ air ${fmt.n(r['Compost − air'],1)}`:''),
+    ring('HR', r['HR %'], '%', 0, 'var(--rh)', r['HR %']/100, band?`bande ${band[1]}–${band[2]}`:''),
+    ring('CO₂', r['CO₂ ppm'], 'ppm', 0, 'var(--co2)', r['Consigne CO₂']>0?Math.min(1,r['CO₂ ppm']/r['Consigne CO₂']):0, r['Consigne CO₂']>0?`consigne ${fmt.n(r['Consigne CO₂'])}`:''),
+    ring('Déficit', r['Déficit g/kg (3 h)'], 'g/kg', 2, 'var(--deficit)', Math.min(1,(r['Déficit g/kg (3 h)']||0)/4), 'moyenne 3 h'),
+    ring('Vanne froid', r['Vanne froid %'], '%', 0, 'var(--froid)', (r['Vanne froid %']||0)/100, r['Froid saturé %']!=null?`saturé ${fmt.n(r['Froid saturé %'])} %`:'')
+  ];
+  h += `<div class="rings">${rings.join('')}</div>`;
+  // range + charts
+  h += `<div class="seg" id="days">${[1,3,7].map(n=>`<button data-days="${n}" class="${state.days===n?'on':''}">${n} j</button>`).join('')}</div>`;
+  if(!s.length){ h += '<div class="empty">Pas de données sur la période</div>'; }
+  else {
+    h += chartCard('temp', 'Températures', '°C', s, [
+        {k:'air',label:'Air',color:'var(--air)'},
+        {k:'air_sp',label:'Consigne air',sp:true},
+        {k:'compost',label:'Compost',color:'var(--compost)'}], {dec:1});
+    h += chartCard('rh', 'Humidité relative', '%', s, [
+        {k:'rh',label:'HR',color:'var(--rh)'},
+        {k:'rh_min',label:'Bande HR',band:'rh_max'}], {dec:0});
+    h += chartCard('co2', 'CO₂', 'ppm', s, [
+        {k:'co2',label:'CO₂',color:'var(--co2)'},
+        {k:'co2_sp',label:'Consigne',sp:true}], {dec:0, zero:true});
+    h += chartCard('act', 'Actionneurs', '%', s, [
+        {k:'cooling',label:'Froid',color:'var(--froid)'},
+        {k:'heating',label:'Chauffage',color:'var(--chauf)'},
+        {k:'fan',label:'Ventilateur',color:'var(--vent)'},
+        {k:'fresh_air',label:'Air neuf',color:'var(--neuf)'}], {dec:0, min:0, max:100});
+    h += chartCard('def', 'Déficit hydrique', 'g/kg', s, [
+        {k:'deficit',label:'Déficit (3 h)',color:'var(--deficit)'}], {dec:2, zero:true, refs: evapRefs(r)});
+  }
+  h += `<div class="card"><h3 style="font-size:14px;margin-bottom:8px">Conformité (3 j, phases actives)</h3><dl class="kv"><dt>Air à ±0,5 °C de la consigne</dt><dd>${r['Air conforme %']!=null?fmt.n(r['Air conforme %'])+' %':'–'}</dd><dt>HR dans la bande</dt><dd>${r['HR dans bande %']!=null?fmt.n(r['HR dans bande %'])+' %':'–'}</dd><dt>CO₂ sur consigne</dt><dd>${r['CO₂ conforme %']!=null?fmt.n(r['CO₂ conforme %'])+' %':'–'}</dd><dt>Froid saturé</dt><dd>${r['Froid saturé %']!=null?fmt.n(r['Froid saturé %'])+' %':'–'}</dd></dl></div>`;
+  const alerts=openAlerts().filter(a=>a.Salle===room);
+  if(alerts.length){ h += `<div class="sec">Alertes en cours</div>` + alerts.map(a=>`<div class="alert"><span class="sev" style="background:${a['Gravité']==='urgent'?'var(--crit)':a['Gravité']==='high'?'var(--serious)':'var(--warn)'}"></span><div class="msg">${esc(a.Message)}</div><div class="meta">depuis ${esc(fmt.dt(a['Début']))}</div></div>`).join(''); }
+  return h;
+}
+function viewRoomWater(r,s,w){
+  let h='';
+  h += `<div class="card"><div class="row"><div class="grow"><div style="font-size:15px;font-weight:600">${esc(r['Phase Fancom']||'')}${r.Stade?` <span class="ink2" style="font-weight:400">· ${esc(r.Stade)}</span>`:''}</div></div><span class="chip s-${statusKey(r.Statut)}"><i></i>${esc(r.Statut)}</span></div></div>`;
+  if(w){ h += `<div class="card"><dl class="kv"><dt>Dernier arrosage</dt><dd>${w.last_watering?`${fmt.n(w.last_l_m2,1)} L/m² · ${esc(fmt.dt(w.last_watering))}`:'–'}</dd><dt>Aujourd’hui</dt><dd>${fmt.n(w.today_l_m2,1)} L/m²</dd><dt>24 h</dt><dd>${fmt.n(w.d1_l_m2,1)} L/m²</dd><dt>7 jours</dt><dd>${fmt.n(w.d7_l_m2,1)} L/m²</dd><dt>Cumul culture</dt><dd>${fmt.n(w.crop_l_m2,1)} L/m²</dd><dt>Débit max (7 j)</dt><dd>${fmt.n(w.max_lpm_7d,1)} L/min</dd></dl></div>`; }
+  h += `<div class="seg" id="days">${[1,3,7].map(n=>`<button data-days="${n}" class="${state.days===n?'on':''}">${n} j</button>`).join('')}</div>`;
+  if(!s.length){ h += '<div class="empty">Pas de données sur la période</div>'; return h; }
+  h += chartCard('water', 'Arrosage par heure', 'L/m²', s, [
+      {k:'water',label:'Eau par heure',color:'var(--water)',bar:true}], {dec:1, zero:true});
+  let cum=0; const cs=s.map(p=>({t:p.t, cum:(cum+=(p.water||0))}));
+  h += chartCard('wcum', 'Cumul sur la période', 'L/m²', cs, [
+      {k:'cum',label:'Cumul',color:'var(--water)'}], {dec:1, zero:true});
+  h += chartCard('lpm', 'Débit', 'L/min', s, [
+      {k:'lpm',label:'Débit moyen',color:'var(--rh)'}], {dec:1, zero:true});
+  // history list of watering events
+  const ev=s.filter(p=>p.water>0).reverse();
+  h += `<div class="sec">Historique (${ev.length})</div>`;
+  h += ev.length ? `<div class="card" style="padding:4px 10px"><table class="w"><thead><tr><th>Heure</th><th>L/m²</th><th>L/min</th><th>Phase</th></tr></thead><tbody>${ev.map(p=>`<tr><td style="text-align:left">${esc(fmt.dt(p.t))}</td><td>${fmt.n(p.water,1)}</td><td>${fmt.n(p.lpm,1)}</td><td class="muted">${esc(p.phase||'')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Aucun arrosage sur la période</div>';
+  return h;
+}
+function evapRefs(r){
+  const pt=(state.data.phase_targets||[]).find(p=>p.phase===r['Phase Fancom']); if(!pt) return [];
+  return [pt.evap_blotch&&{v:pt.evap_blotch,label:'taches',color:'var(--crit)'}, pt.evap_low&&pt.evap_low!==pt.evap_blotch&&{v:pt.evap_low,label:'faible',color:'var(--warn)'}, pt.evap_dry&&{v:pt.evap_dry,label:'sec',color:'var(--warn)'}].filter(Boolean);
+}
+function ring(label, v, unit, dec, color, frac, sub){
+  const R=34, C=2*Math.PI*R, f=Math.max(0,Math.min(1,frac||0));
+  return `<div class="ring"><svg viewBox="0 0 84 84"><circle cx="42" cy="42" r="${R}" fill="none" stroke="var(--grid)" stroke-width="6"/><circle cx="42" cy="42" r="${R}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(C*f).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 42 42)"/><text x="42" y="46" text-anchor="middle" style="font-size:16px;font-weight:700;fill:var(--ink)">${fmt.n(v,dec)}</text><text x="42" y="58" text-anchor="middle" style="font-size:9px;fill:var(--muted)">${unit}</text></svg><div class="l">${label}</div>${sub?`<div class="sp">${sub}</div>`:''}</div>`;
+}
+
+// ---------- charts ----------
+const W=360, H=150, PL=34, PR=8, PT=10, PB=22;
+function chartCard(id, title, unit, s, ser, opt){
+  const legend = ser.map(x=>`<span><i class="${x.sp?'dash':x.bar?'bar':''}" style="${x.band?'border-top:0;height:8px;background:var(--rh);opacity:.3':x.sp?'border-color:var(--ink2)':x.bar?`background:${x.color}`:`border-color:${x.color}`}"></i>${x.label}</span>`).join('') + (opt.refs||[]).map(r=>`<span><i class="dash" style="border-color:${r.color}"></i>${r.label} ${fmt.n(r.v,1)}</span>`).join('');
+  return `<div class="card chart" data-chart="${id}"><h3>${title} <span class="muted small">${unit}</span></h3><div class="tt" id="tt-${id}">&nbsp;</div>${plot(id,s,ser,opt)}<div class="legend">${legend}</div></div>`;
+}
+function plot(id, s, ser, opt){
+  const t0=s[0].t, t1=s[s.length-1].t, span=Math.max(1,t1-t0)+3600e3;
+  const X=t=>PL+(t-t0)/span*(W-PL-PR);
+  let vals=[];
+  ser.forEach(x=>{ s.forEach(p=>{ if(p[x.k]!=null) vals.push(p[x.k]); if(x.band&&p[x.band]!=null) vals.push(p[x.band]); }); });
+  (opt.refs||[]).forEach(r=>vals.push(r.v));
+  if(!vals.length) return '<div class="empty small">Pas de données</div>';
+  let lo=opt.min!=null?opt.min:Math.min(...vals), hi=opt.max!=null?opt.max:Math.max(...vals);
+  if(opt.zero) lo=Math.min(lo,0);
+  if(hi-lo<1e-6){ hi=lo+1; }
+  const pad=(hi-lo)*0.08; if(opt.min==null) lo-=pad; if(opt.max==null) hi+=pad; if(opt.zero&&lo<0&&opt.min==null) lo=Math.min(0,lo);
+  if(opt.zero) lo=Math.min(lo,0);
+  const Y=v=>PT+(hi-v)/(hi-lo)*(H-PT-PB);
+  const ticks=niceTicks(lo,hi,4);
+  const step=ticks.length>1?ticks[1]-ticks[0]:1; const tdec=step>=1?0:step>=0.1?1:2;
+  let g='';
+  ticks.forEach(v=>{ g+=`<line class="grid" x1="${PL}" x2="${W-PR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${PL-4}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end">${fmt.n(v,tdec)}</text>`; });
+  // x ticks: midnight marks + hours
+  const dayMs=86400e3; const paris=t=>{ const d=new Date(t); const p=new Date(d.toLocaleString('en-US',{timeZone:TZ})); return p; };
+  let xt=''; const firstMid=(()=>{ const p=paris(t0); const off=(p.getHours()*60+p.getMinutes())*60e3; return t0-off+dayMs; })();
+  const nDays=Math.ceil(span/dayMs);
+  for(let t=firstMid;t<t1;t+=dayMs){ const x=X(t); xt+=`<line class="axis" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${PT}" y2="${H-PB}" stroke-dasharray="2 3"/><text x="${(x+3).toFixed(1)}" y="${H-PB+13}">${new Date(t).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',timeZone:TZ})}</text>`; }
+  if(nDays<=1){ for(let t=t0;t<=t1;t+=6*3600e3){ const p=paris(t); if(p.getHours()%6) continue; xt+=`<text x="${(X(t)+3).toFixed(1)}" y="${H-PB+13}">${String(p.getHours()).padStart(2,'0')}h</text>`; } }
+  let body='';
+  ser.forEach(x=>{
+    if(x.band){ // band between k and band
+      const up=s.filter(p=>p[x.k]!=null&&p[x.band]!=null&&p[x.k]>0&&p[x.band]<100);
+      if(up.length){ const path = up.map((p,i)=>`${i?'L':'M'}${X(p.t).toFixed(1)},${Y(p[x.band]).toFixed(1)}`).join('') + up.slice().reverse().map(p=>`L${X(p.t).toFixed(1)},${Y(p[x.k]).toFixed(1)}`).join('')+'Z'; body+=`<path class="band" d="${path}"/>`; }
+      return;
+    }
+    if(x.bar){ const bw=Math.max(1,(W-PL-PR)/s.length-0.5); s.forEach(p=>{ if(p[x.k]>0){ const y=Y(p[x.k]); body+=`<rect x="${(X(p.t)-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0)-y).toFixed(1)}" rx="1" fill="${x.color}"/>`; } }); return; }
+    let d='', pen=false;
+    s.forEach(p=>{ const v=p[x.k]; if(v==null||(x.sp&&(v<=0))){ pen=false; return; } d+=`${pen?'L':'M'}${X(p.t).toFixed(1)},${Y(v).toFixed(1)}`; pen=true; });
+    body+=`<path class="${x.sp?'sp':'line'}" ${x.sp?'':`stroke="${x.color}"`} d="${d}"/>`;
+  });
+  (opt.refs||[]).forEach(r=>{ body+=`<line x1="${PL}" x2="${W-PR}" y1="${Y(r.v).toFixed(1)}" y2="${Y(r.v).toFixed(1)}" stroke="${r.color}" stroke-width="1" stroke-dasharray="3 3"/>`; });
+  const meta = JSON.stringify({t0,span,lo,hi,keys:ser.filter(x=>!x.band).map(x=>({k:x.k,label:x.label,color:x.color||'var(--ink2)',dec:opt.dec}))}).replace(/"/g,'&quot;');
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" data-meta="${meta}" data-id="${id}"><g>${g}${xt}</g><line class="axis" x1="${PL}" x2="${W-PR}" y1="${H-PB}" y2="${H-PB}"/><g>${body}</g><g class="hover"></g></svg>`;
+}
+function niceTicks(lo,hi,n){ const span=hi-lo; const raw=span/n; const p=Math.pow(10,Math.floor(Math.log10(raw))); const m=raw/p; const step=(m<1.5?1:m<3?2:m<7?5:10)*p; const out=[]; for(let v=Math.ceil(lo/step)*step; v<=hi+1e-9; v+=step) out.push(+v.toFixed(6)); return out; }
+
+// hover / touch crosshair across all charts of the room
+function bindCharts(){
+  const svgs=[...document.querySelectorAll('svg.plot')]; if(!svgs.length) return;
+  const s=series(state.room); if(!s.length) return;
+  const show=(clientX, svgEl)=>{
+    const rect=svgEl.getBoundingClientRect(); const x=(clientX-rect.left)/rect.width*W;
+    const meta=JSON.parse(svgEl.dataset.meta.replace(/&quot;/g,'"'));
+    const t=meta.t0+(x-PL)/(W-PL-PR)*meta.span;
+    let best=s[0], bd=Infinity; s.forEach(p=>{ const d=Math.abs(p.t-t); if(d<bd){bd=d;best=p;} });
+    svgs.forEach(sv=>{
+      const m=JSON.parse(sv.dataset.meta.replace(/&quot;/g,'"'));
+      const Xp=PL+(best.t-m.t0)/m.span*(W-PL-PR); const Y=v=>PT+(m.hi-v)/(m.hi-m.lo)*(H-PT-PB);
+      let hh=`<line class="cross" x1="${Xp.toFixed(1)}" x2="${Xp.toFixed(1)}" y1="${PT}" y2="${H-PB}"/>`;
+      const parts=[];
+      m.keys.forEach(k=>{ const v=best[k.k]; if(v==null) return; if(k.k!=='water') hh+=`<circle class="dot" cx="${Xp.toFixed(1)}" cy="${Y(v).toFixed(1)}" r="4" fill="${k.color}"/>`; parts.push(`${k.label} ${fmt.n(v,k.dec)}`); });
+      sv.querySelector('.hover').innerHTML=hh;
+      const tt=document.getElementById('tt-'+sv.dataset.id); if(tt) tt.textContent=`${fmt.dt(best.t)} — ${parts.join(' · ')}`;
+    });
+  };
+  const clear=()=>{ svgs.forEach(sv=>{ sv.querySelector('.hover').innerHTML=''; const tt=document.getElementById('tt-'+sv.dataset.id); if(tt) tt.innerHTML='&nbsp;'; }); };
+  svgs.forEach(sv=>{
+    sv.addEventListener('pointermove', e=>show(e.clientX,sv));
+    sv.addEventListener('pointerdown', e=>show(e.clientX,sv));
+    sv.addEventListener('pointerleave', clear);
+    sv.addEventListener('touchmove', e=>{ show(e.touches[0].clientX,sv); }, {passive:true});
+  });
+}
+
+// ---------- events ----------
+function bind(){
+  document.querySelectorAll('[data-room]').forEach(el=>el.addEventListener('click', ()=>{ if(!state.room) state.mode = state.view==='arrosage' ? 'arrosage' : 'climat'; state.room=el.dataset.room; window.scrollTo(0,0); render(); }));
+  document.querySelectorAll('#days button').forEach(b=>b.addEventListener('click', ()=>{ state.days=+b.dataset.days; try{localStorage.setItem('cabane.days',state.days);}catch(e){} load(true); }));
+  const on=document.querySelector('#pill button.on'); if(on) on.scrollIntoView({inline:'center',block:'nearest'});
+  const lo=$('#logout'); if(lo) lo.addEventListener('click', e=>{ e.preventDefault(); logout(); });
+  bindCharts();
+}
+$('#backBtn').addEventListener('click', ()=>{ state.room=null; render(); });
+$('#refreshBtn').addEventListener('click', ()=>load(true));
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.room=null; window.scrollTo(0,0); render(); }));
+// swipe between rooms in detail view
+let sx=null, sy=null;
+document.addEventListener('touchstart', e=>{ if(!state.room||e.target.closest('svg.plot,.pill')) {sx=null;return;} sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
+document.addEventListener('touchend', e=>{ if(sx==null||!state.room) return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy; sx=null; if(Math.abs(dx)>70&&Math.abs(dy)<50){ const l=rooms(); const i=l.indexOf(state.room); const j=dx<0?i+1:i-1; if(j>=0&&j<l.length){ state.room=l[j]; window.scrollTo(0,0); render(); } } }, {passive:true});
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && Date.now()-state.lastFetch>5*60e3) load(); });
+setInterval(()=>{ if(!document.hidden) load(); }, 10*60e3);
+function showLogin(){
+  $('#tabs').classList.add('hidden'); $('#backBtn').classList.add('hidden'); $('#title').firstChild.textContent='Salles'; $('#subtitle').textContent='';
+  const logo=document.querySelector('.hdr .logo.lt').src;
+  main.innerHTML=`<form class="login" id="loginForm"><img src="${logo}" alt=""><h2>Cabane &amp; Cie — Salles</h2><p>Climat et arrosage des salles de culture</p>${state.loginError?`<div class="err">${esc(state.loginError)}</div>`:''}<input id="pw" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Mot de passe" autofocus><button class="go" type="submit">Ouvrir</button></form>`;
+  $('#loginForm').addEventListener('submit', e=>{ e.preventDefault(); const v=$('#pw').value.trim(); if(!v) return; KEY=v; try{localStorage.setItem('cabane.key',KEY);}catch(e){} state.loginError=''; $('#tabs').classList.remove('hidden'); load(); });
+  setTimeout(()=>{ const i=$('#pw'); if(i) i.focus(); },50);
+}
+function logout(){ KEY=''; state.data=null; try{localStorage.removeItem('cabane.key');}catch(e){} showLogin(); }
+if(!KEY) showLogin(); else load();
+})();
+</script>
+</body>
+</html>
