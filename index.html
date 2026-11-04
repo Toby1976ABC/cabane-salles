@@ -67,7 +67,7 @@ main{padding:12px 16px 8px;max-width:640px;margin:0 auto}
 .room{width:100%;text-align:left;display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;position:relative}
 .room:active{background:var(--wash)}
 .room .name{font-size:20px;font-weight:700;letter-spacing:-.01em}
-.room .phase{font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room .phase{font-size:13px;color:var(--ink2);line-height:1.3}.room .phase b{color:var(--ink);font-weight:600}
 .room .vals{grid-column:1/-1;display:flex;gap:12px;font-size:13px;color:var(--ink2);flex-wrap:wrap}
 .room .vals b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
 .room .vals .off{color:var(--crit)}
@@ -202,6 +202,15 @@ function series(room){ const s=(state.data&&state.data.series&&state.data.series
 function rooms(){ return state.data ? state.data.status.map(r=>r.Salle).sort((a,b)=>roomOrder(a)-roomOrder(b)) : []; }
 function statusOf(room){ return state.data && state.data.status.find(r=>r.Salle===room); }
 function openAlerts(){ return state.data ? state.data.alerts.filter(a=>!a['Fin']) : []; }
+function dayNo(ts){ if(!ts) return null; const d=Math.floor((Date.now()-new Date(ts))/86400e3)+1; return d>0?d:null; }
+function phaseLine(r){
+  const t=(state.data.timing||{})[r.Salle]||{}; const parts=[esc(r['Phase Fancom']||'')];
+  if(r.Statut!=='Inactif'){
+    if(r.Stade){ const jf=dayNo(t.flush_start); parts.push(`<b>${esc(r.Stade)}${jf?` · J${jf}`:''}</b>`); }
+    const jc=dayNo(t.cycle_start); if(jc) parts.push(`${r.Salle[0]==='P'?'remplissage':'culture'} J${jc}${t.cycle_approx?'+':''}`);
+  }
+  return parts.join(' · ');
+}
 
 // ---------- rendering ----------
 function render(){
@@ -256,7 +265,7 @@ function roomCard(r){
     const compOff = active && r['Compost °C']>=28;
     h += `<button class="room" data-room="${r.Salle}"><span class="sline ${key(r)}"></span>
       <span class="name">${r.Salle}</span>
-      <span class="phase">${esc(r['Phase Fancom']||'')}${r.Stade?` · ${esc(r.Stade)}`:''}</span>
+      <span class="phase">${phaseLine(r)}</span>
       <span class="chip s-${key(r)}"><i></i>${esc(r.Statut)}</span>
       <span class="vals">
         <span>Air <b class="${airOff?'off':''}">${fmt.n(r['Air °C'],1)}°</b><span class="muted">/${fmt.n(r['Consigne air °C'],1)}</span></span>
@@ -313,7 +322,7 @@ function viewRoom(room){
   if(!r) return h+'<div class="empty">Salle inconnue</div>';
   const active=r.Statut!=='Inactif';
   if(state.mode==='arrosage') return h+viewRoomWater(r,s,w);
-  h += `<div class="card"><div class="row"><div class="grow"><div style="font-size:15px;font-weight:600">${esc(r['Phase Fancom']||'')}${r.Stade?` <span class="ink2" style="font-weight:400">· ${esc(r.Stade)}</span>`:''}</div>
+  h += `<div class="card"><div class="row"><div class="grow"><div style="font-size:15px;font-weight:600">${phaseLine(r)}</div>
       ${r.Alertes||r['Évaporation']?`<div class="small ink2" style="margin-top:4px">${esc([r['Évaporation'],...String(r.Alertes||'').split(' | ')].filter(Boolean).join(' · '))}</div>`:''}</div>
       <span class="chip s-${statusKey(r.Statut)}"><i></i>${esc(r.Statut)}</span></div></div>`;
   // rings
@@ -356,7 +365,7 @@ function viewRoom(room){
 }
 function viewRoomWater(r,s,w){
   let h='';
-  h += `<div class="card"><div class="row"><div class="grow"><div style="font-size:15px;font-weight:600">${esc(r['Phase Fancom']||'')}${r.Stade?` <span class="ink2" style="font-weight:400">· ${esc(r.Stade)}</span>`:''}</div></div><span class="chip s-${statusKey(r.Statut)}"><i></i>${esc(r.Statut)}</span></div></div>`;
+  h += `<div class="card"><div class="row"><div class="grow"><div style="font-size:15px;font-weight:600">${phaseLine(r)}</div></div><span class="chip s-${statusKey(r.Statut)}"><i></i>${esc(r.Statut)}</span></div></div>`;
   if(w){ h += `<div class="card"><dl class="kv"><dt>Dernier arrosage</dt><dd>${w.last_watering?`${fmt.n(w.last_l_m2,1)} L/m² · ${esc(fmt.dt(w.last_watering))}`:'–'}</dd><dt>Aujourd’hui</dt><dd>${fmt.n(w.today_l_m2,1)} L/m²</dd><dt>24 h</dt><dd>${fmt.n(w.d1_l_m2,1)} L/m²</dd><dt>7 jours</dt><dd>${fmt.n(w.d7_l_m2,1)} L/m²</dd><dt>Cumul culture</dt><dd>${fmt.n(w.crop_l_m2,1)} L/m²</dd><dt>Débit max (7 j)</dt><dd>${fmt.n(w.max_lpm_7d,1)} L/min</dd></dl></div>`; }
   h += `<div class="seg" id="days">${[1,3,7].map(n=>`<button data-days="${n}" class="${state.days===n?'on':''}">${n} j</button>`).join('')}</div>`;
   if(!s.length){ h += '<div class="empty">Pas de données sur la période</div>'; return h; }
