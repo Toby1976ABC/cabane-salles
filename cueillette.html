@@ -51,7 +51,7 @@ h1,h2,h3{margin:0;font-weight:600}
 .iconbtn svg{width:22px;height:22px}
 main{padding:12px 16px 8px;max-width:640px;margin:0 auto}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom)}
-.tabs button{flex:1;padding:8px 0 6px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+.tabs button{flex:1;padding:8px 0 6px;font-size:10px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
 .tabs button.on{color:var(--brown)}
 .tabs svg{width:24px;height:24px}
 .tabs .badge{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;border-radius:9px;background:var(--crit);color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 5px}
@@ -198,6 +198,8 @@ table.p td.nm small{display:block;font-weight:400;color:var(--muted);font-size:1
   <button data-tab="periode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Période</button>
   <button data-tab="cueilleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20c0-3-2-5.2-4.8-5.8"/></svg>Cueilleurs</button>
   <button data-tab="lignes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg>Lignes<span class="badge hidden" id="lineBadge"></span></button>
+  <button data-tab="equipe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Équipe</button>
+  <button data-tab="planning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 15h3M13 15h3"/></svg>Planning</button>
 </nav>
 <script>
 (function(){
@@ -221,7 +223,8 @@ const esc = s => String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>
 const roomOrder = n => (n[0]==='P'?0:1000)+parseInt(n.slice(1),10);
 const sum=(a,f)=>a.reduce((s,x)=>s+(f?f(x):x)||0,0);
 
-const state = { data:null, view:'jour', day:null, days:7, picker:null, loading:false, error:null, lastFetch:0, loginError:'' };
+const state = { data:null, view:'jour', day:null, days:7, picker:null, loading:false, error:null, lastFetch:0, loginError:'', eff:85, eqDay:null };
+try { const e=localStorage.getItem('cueillette.eff'); if(e) state.eff=+e; } catch(e){}
 try { const d=localStorage.getItem('cueillette.days'); if(d) state.days=+d; } catch(e){}
 
 // ---------- data ----------
@@ -237,6 +240,12 @@ async function load(){
     j.pickers=(j.pickers||[]).map(a=>({day:a[0],no:a[1],name:a[2],rooms:a[3],mush:a[4],hours:a[5],per_min:a[6],kg:a[7],kg_h:a[8],vs:a[9]}));
     j.lines=(j.lines||[]).map(a=>({day:a[0],line:a[1],room:a[2],hours:a[3],mush:a[4],pct75:a[5],issue:a[6],not_sorting:a[7]}));
     j.dayList=[...new Set(j.rooms.map(r=>r.day))].sort();
+    const f=j.fact||{}; j.fact={synced_at:f.synced_at,
+      planning:(f.planning||[]).map(a=>({day:a[0],team:a[1],grp:a[2],emp:a[3]||0,hours:+a[4]||0})),
+      attendance:(f.attendance||[]).map(a=>({day:a[0],name:a[1],team:a[2],grp:a[3],worked:+a[4]||0,planned:a[5]==null?null:+a[5]})),
+      absences:(f.absences||[]).map(a=>({day:a[0],name:a[1],team:a[2],type:a[3]}))};
+    j.fact.attDays=[...new Set(j.fact.attendance.map(a=>a.day))].sort();
+    if(!state.eqDay || !j.fact.attDays.includes(state.eqDay)) state.eqDay=j.fact.attDays[j.fact.attDays.length-1]||null;
     state.data=j; state.error=null; state.lastFetch=Date.now();
     if(!state.day || !j.dayList.includes(state.day)) state.day=j.last_day||j.dayList[j.dayList.length-1];
   }catch(e){ state.error = e.message || String(e); }
@@ -267,7 +276,7 @@ function render(){
   if(!d){ main.innerHTML = state.error ? `<div class="err">${esc(state.error)}</div>` : '<div class="empty">Chargement…</div>'; return; }
   let html = state.error ? `<div class="err">${esc(state.error)}</div>` : '';
   if(state.picker){ $('#title').firstChild.textContent='Cueilleur'; html+=viewPicker(state.picker); }
-  else { $('#title').firstChild.textContent={jour:'Cueillette du jour',periode:'Période',cueilleurs:'Cueilleurs',lignes:'Lignes'}[state.view]; html+={jour:viewJour,periode:viewPeriode,cueilleurs:viewCueilleurs,lignes:viewLignes}[state.view](); }
+  else { $('#title').firstChild.textContent={jour:'Cueillette du jour',periode:'Période',cueilleurs:'Cueilleurs',lignes:'Lignes',equipe:'Équipe (Factorial)',planning:'Planning cueille'}[state.view]; html+={jour:viewJour,periode:viewPeriode,cueilleurs:viewCueilleurs,lignes:viewLignes,equipe:viewEquipe,planning:viewPlanning}[state.view](); }
   main.innerHTML=html; bind();
 }
 function kpis(t, pickers){
@@ -349,6 +358,78 @@ function viewLignes(){
   return h;
 }
 
+// ---------- Factorial: équipe ----------
+const GRP={cueille:'Cueille',conditionnement:'Conditionnement',autre:'Autres'};
+function todayISO(){ return new Date(Date.now()-new Date().getTimezoneOffset()*60e3).toISOString().slice(0,10); }
+function viewEquipe(){
+  const f=state.data.fact; const days=f.attDays; let h='';
+  const sync=f.synced_at?`Synchronisé ${esc(fmt.day(f.synced_at.slice(0,10)))} ${new Date(f.synced_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`:'Pas encore synchronisé';
+  if(!days.length){
+    return `<div class="empty">Les pointages Factorial ne sont pas encore synchronisés.<br><span class="small">La tâche quotidienne (6 h 10) remplit cet onglet avec les heures planifiées, les heures pointées et les absences.</span></div><p class="help">${sync}</p>`+absencesBlock(todayISO());
+  }
+  const day=state.eqDay; const i=days.indexOf(day);
+  const att=f.attendance.filter(a=>a.day===day); const plan=f.planning.filter(p=>p.day===day);
+  h+=`<div class="daynav"><button id="prevEq" ${i<=0?'disabled':''}>‹</button><div class="d">${esc(fmt.dayLong(day))}</div><button id="nextEq" ${i>=days.length-1?'disabled':''}>›</button></div>`;
+  const tw=sum(att,a=>a.worked), tp=sum(plan,p=>p.hours);
+  h+=`<div class="kpis"><div class="kpi"><div class="v">${fmt.n(tp,0)}<span class="u">h</span></div><div class="l">Planifiées</div></div><div class="kpi"><div class="v">${fmt.n(tw,0)}<span class="u">h</span></div><div class="l">Pointées</div></div><div class="kpi"><div class="v" style="color:${tp?vsColor(100*tw/tp):'var(--ink)'}">${tp?fmt.n(100*tw/tp):'–'}<span class="u">%</span></div><div class="l">Réalisé</div></div></div>`;
+  // per team: planned (planning_day) vs worked (attendance by team)
+  const teams={}; plan.forEach(p=>{ const o=teams[p.team]||(teams[p.team]={team:p.team,grp:p.grp,planned:0,worked:0,n:0,emp:0}); o.planned+=p.hours; o.emp+=p.emp; });
+  att.forEach(a=>{ const t=a.team||'Sans équipe'; const o=teams[t]||(teams[t]={team:t,grp:a.grp,planned:0,worked:0,n:0,emp:0}); o.worked+=a.worked; o.n++; });
+  const order={cueille:0,conditionnement:1,autre:2};
+  const rows=Object.values(teams).filter(t=>t.planned||t.worked).sort((a,b)=>(order[a.grp]-order[b.grp])||a.team.localeCompare(b.team));
+  const mx=Math.max(1,...rows.map(r=>Math.max(r.planned,r.worked)));
+  let lastG=null;
+  h+=`<div class="sec">Heures planifiées vs pointées par groupe</div><div class="card">`;
+  rows.forEach(r=>{ if(r.grp!==lastG){ h+=`<div class="small muted" style="margin:${lastG?10:0}px 0 4px;font-weight:600">${GRP[r.grp]||r.grp}</div>`; lastG=r.grp; }
+    h+=`<div class="hbar" style="grid-template-columns:86px 1fr 92px"><span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.team)}</span><div><div class="bw" style="height:6px;margin-bottom:2px"><i style="width:${(100*r.planned/mx).toFixed(1)}%;background:var(--beige)"></i></div><div class="bw" style="height:6px"><i style="width:${(100*r.worked/mx).toFixed(1)}%;background:var(--brown)"></i></div></div><span class="pc">${fmt.n(r.planned,1)} / <b>${fmt.n(r.worked,1)}</b> h</span></div>`; });
+  h+=`<div class="callab" style="margin-top:8px"><span><b style="background:var(--beige)"></b>planifié</span><span><b style="background:var(--brown)"></b>pointé</span></div></div>`;
+  const sorted=att.slice().sort((a,b)=>b.worked-a.worked);
+  const line=a=>`<tr><td class="nm" style="text-align:left">${esc(a.name)}<small>${esc(a.team||'')}</small></td><td>${fmt.n(a.worked,2)} h</td><td class="muted">${a.planned!=null?fmt.n(a.planned,2)+' h':'–'}</td></tr>`;
+  if(sorted.length){
+    h+=`<div class="sec">Top 5 heures travaillées</div><div class="card" style="padding:4px 10px"><table class="w p"><thead><tr><th>Nom</th><th>Pointé</th><th>Planifié</th></tr></thead><tbody>${sorted.slice(0,5).map(line).join('')}</tbody></table></div>`;
+    h+=`<div class="sec">5 plus faibles</div><div class="card" style="padding:4px 10px"><table class="w p"><thead><tr><th>Nom</th><th>Pointé</th><th>Planifié</th></tr></thead><tbody>${sorted.slice(-5).reverse().map(line).join('')}</tbody></table></div>`;
+  }
+  h+=absencesBlock(day);
+  h+=`<p class="help">${sync} · source Factorial (planning, pointages, absences).</p>`;
+  return h;
+}
+function absencesBlock(day){
+  const ab=state.data.fact.absences.filter(a=>a.day===day);
+  let h=`<div class="sec">Absents (${ab.length})</div>`;
+  if(!ab.length) return h+'<div class="empty small">Aucune absence enregistrée ce jour</div>';
+  return h+`<div class="card" style="padding:4px 10px"><table class="w p"><thead><tr><th>Nom</th><th>Motif</th></tr></thead><tbody>${ab.map(a=>`<tr><td class="nm" style="text-align:left">${esc(a.name)}<small>${esc(a.team||'')}</small></td><td style="white-space:normal">${esc(a.type||'')}</td></tr>`).join('')}</tbody></table></div>`;
+}
+// ---------- Factorial: planning cueille ----------
+function viewPlanning(){
+  const d=state.data; const f=d.fact; const today=todayISO();
+  // average work rate over the last 7 picking days (team level)
+  const last=d.dayList.slice(-7); const rows=d.rooms.filter(r=>last.includes(r.day)); const t=totals(rows);
+  const kgh=t.kg_h||0, pm=t.per_min||0, gavg=t.g||0;
+  // observed efficiency: Ridder picking hours vs planned cueille hours on common days
+  const obs=[]; last.forEach(day=>{ const ph=sum(f.planning.filter(p=>p.day===day&&p.grp==='cueille'),p=>p.hours); const rh=sum(d.rooms.filter(r=>r.day===day),r=>r.hours); if(ph>0&&rh>0) obs.push(rh/ph); });
+  const obsEff=obs.length?100*sum(obs)/obs.length:null;
+  const eff=state.eff/100;
+  let h=`<div class="card"><div class="row"><div class="grow" style="font-weight:600">Efficience cueille</div><div style="font-size:22px;font-weight:700;color:var(--brown)">${state.eff} %</div></div>
+    <input type="range" id="eff" min="40" max="100" step="5" value="${state.eff}" style="width:100%;accent-color:var(--brown);margin:6px 0">
+    <div class="small muted">Part des heures planifiées réellement passées à cueillir (tri, nettoyage, déplacements exclus).${obsEff?` Observé sur ${obs.length} j : <b>${fmt.n(obsEff)} %</b> (heures Ridder / heures planifiées).`:''}</div></div>`;
+  h+=`<div class="kpis"><div class="kpi"><div class="v">${fmt.n(kgh,1)}</div><div class="l">Kg/h moyen (7 j)</div></div><div class="kpi"><div class="v">${fmt.n(pm,1)}</div><div class="l">Champ./min (7 j)</div></div><div class="kpi"><div class="v">${fmt.n(gavg,1)}<span class="u">g</span></div><div class="l">g / champignon</div></div></div>`;
+  const days=[...new Set(f.planning.map(p=>p.day))].filter(x=>x>=today).sort().slice(0,8);
+  if(!days.length){ h+=`<div class="empty">Aucun planning Factorial chargé pour les jours à venir.<br><span class="small">La tâche quotidienne synchronise le planning des 7 prochains jours.</span></div>`; return h; }
+  h+=`<div class="sec">Prévision par jour</div>`;
+  days.forEach(day=>{
+    const pl=f.planning.filter(p=>p.day===day); const c=pl.filter(p=>p.grp==='cueille'), k=pl.filter(p=>p.grp==='conditionnement');
+    const ce=sum(c,p=>p.emp), ch=sum(c,p=>p.hours), ke=sum(k,p=>p.emp), kh=sum(k,p=>p.hours);
+    const eh=ch*eff, kg=eh*kgh, mush=eh*60*pm;
+    const actual=d.rooms.filter(r=>r.day===day); const akg=sum(actual,r=>r.kg), ah=sum(actual,r=>r.hours);
+    h+=`<div class="rc"><div class="top"><span class="name" style="font-size:16px;text-transform:capitalize">${esc(fmt.dayLong(day))}</span><span class="kg">${fmt.n(kg)} <small>kg estimés</small></span></div>
+      <div class="vals"><span>Cueille <b>${ce}</b> pers · <b>${fmt.n(ch,1)}</b> h</span><span>Conditionnement <b>${ke}</b> pers · <b>${fmt.n(kh,1)}</b> h</span></div>
+      <div class="vals"><span>Heures cueille utiles <b>${fmt.n(eh,1)}</b> h</span><span>Champignons <b>${fmt.k(mush)}</b></span>${ah?`<span>Réalisé Ridder <b>${fmt.n(akg)} kg</b> en ${fmt.n(ah,1)} h</span>`:''}</div>
+      ${c.length?`<div class="small muted" style="margin-top:4px">${c.map(p=>`${esc(p.team)} ${p.emp}p/${fmt.n(p.hours,0)}h`).join(' · ')}</div>`:''}</div>`;
+  });
+  h+=`<p class="help">kg estimés = heures cueille planifiées × efficience × kg/h moyen des 7 derniers jours (Ridder). Les effectifs par équipe peuvent se recouper (une personne dans plusieurs équipes).</p>`;
+  return h;
+}
+
 // ---------- charts (daily) ----------
 function dayChart(id, title, pts, colors, labels, dec=0, ref){
   const W=360,H=150,PL=36,PR=8,PT=10,PB=22; const n=pts.length; if(!n) return '';
@@ -383,6 +464,10 @@ function bind(){
   if(pv) pv.addEventListener('click', ()=>{ const i=list.indexOf(state.day); if(i>0){ state.day=list[i-1]; render(); } });
   if(nx) nx.addEventListener('click', ()=>{ const i=list.indexOf(state.day); if(i<list.length-1){ state.day=list[i+1]; render(); } });
   const lo=$('#logout'); if(lo) lo.addEventListener('click', e=>{ e.preventDefault(); logout(); });
+  const pe=$('#prevEq'), ne=$('#nextEq'); const ad=state.data?state.data.fact.attDays:[];
+  if(pe) pe.addEventListener('click', ()=>{ const i=ad.indexOf(state.eqDay); if(i>0){ state.eqDay=ad[i-1]; render(); } });
+  if(ne) ne.addEventListener('click', ()=>{ const i=ad.indexOf(state.eqDay); if(i<ad.length-1){ state.eqDay=ad[i+1]; render(); } });
+  const ef=$('#eff'); if(ef){ ef.addEventListener('input', ()=>{ state.eff=+ef.value; }); ef.addEventListener('change', ()=>{ state.eff=+ef.value; try{localStorage.setItem('cueillette.eff',state.eff);}catch(e){} render(); }); }
   bindCharts();
 }
 $('#backBtn').addEventListener('click', ()=>{ state.picker=null; render(); });
