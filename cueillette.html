@@ -139,6 +139,8 @@ table.w tr{cursor:pointer}
 .stale{color:var(--crit);font-weight:600}
 .hidden{display:none !important}
 .help{font-size:12px;color:var(--muted);margin:4px 4px 10px}
+.btn{padding:10px;border-radius:10px;background:var(--brown);color:#fff;font-weight:600;font-size:14px}
+table.w tr.muted td{color:var(--muted)}
 .login{max-width:320px;margin:40px auto 0;text-align:center}
 .login img{height:70px;margin-bottom:14px}
 .login h2{font-size:18px;margin-bottom:4px}
@@ -200,6 +202,7 @@ table.p td.nm small{display:block;font-weight:400;color:var(--muted);font-size:1
   <button data-tab="lignes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg>Lignes<span class="badge hidden" id="lineBadge"></span></button>
   <button data-tab="equipe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Équipe</button>
   <button data-tab="planning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 15h3M13 15h3"/></svg>Planning</button>
+  <button data-tab="rendement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M5 7h14M12 7l-5 8h10z"/><path d="M4 21h16M8 21v-3M16 21v-3M12 21v-6"/></svg>Rendement</button>
 </nav>
 <script>
 (function(){
@@ -223,16 +226,18 @@ const esc = s => String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>
 const roomOrder = n => (n[0]==='P'?0:1000)+parseInt(n.slice(1),10);
 const sum=(a,f)=>a.reduce((s,x)=>s+(f?f(x):x)||0,0);
 
-const state = { data:null, view:'jour', day:null, days:7, picker:null, loading:false, error:null, lastFetch:0, loginError:'', eff:85, eqDay:null };
+const state = { data:null, view:'jour', day:null, days:7, picker:null, loading:false, error:null, lastFetch:0, loginError:'', eff:85, eqDay:null, ydays:7, yarea:580, yroom:null, yend:null, loadedDays:0 };
 try { const e=localStorage.getItem('cueillette.eff'); if(e) state.eff=+e; } catch(e){}
 try { const d=localStorage.getItem('cueillette.days'); if(d) state.days=+d; } catch(e){}
+try { const y=localStorage.getItem('cueillette.ydays'); if(y) state.ydays=Math.min(62,Math.max(1,+y)); const a=localStorage.getItem('cueillette.yarea'); if(a) state.yarea=+a; } catch(e){}
 
 // ---------- data ----------
 async function load(){
   if(state.loading) return;
   state.loading=true; render();
   try{
-    const r = await fetch(`${API}?pick=1&k=${encodeURIComponent(KEY)}&days=${state.days}`, {cache:'no-store'});
+    const want=Math.min(62,Math.max(state.days, yieldDaysNeeded()));
+    const r = await fetch(`${API}?pick=1&k=${encodeURIComponent(KEY)}&days=${want}`, {cache:'no-store'});
     if(r.status===403||r.status===401){ KEY=''; try{localStorage.removeItem('cabane.key');}catch(e){} state.loading=false; state.loginError='Mot de passe incorrect.'; showLogin(); return; }
     if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.error||('Erreur '+r.status)); }
     const j = await r.json();
@@ -246,7 +251,7 @@ async function load(){
       absences:(f.absences||[]).map(a=>({day:a[0],name:a[1],team:a[2],type:a[3]}))};
     j.fact.attDays=[...new Set(j.fact.attendance.map(a=>a.day))].sort();
     if(!state.eqDay || !j.fact.attDays.includes(state.eqDay)) state.eqDay=j.fact.attDays[j.fact.attDays.length-1]||null;
-    state.data=j; state.error=null; state.lastFetch=Date.now();
+    state.data=j; state.loadedDays=j.days||want; state.error=null; state.lastFetch=Date.now();
     if(!state.day || !j.dayList.includes(state.day)) state.day=j.last_day||j.dayList[j.dayList.length-1];
   }catch(e){ state.error = e.message || String(e); }
   state.loading=false; render();
@@ -276,7 +281,7 @@ function render(){
   if(!d){ main.innerHTML = state.error ? `<div class="err">${esc(state.error)}</div>` : '<div class="empty">Chargement…</div>'; return; }
   let html = state.error ? `<div class="err">${esc(state.error)}</div>` : '';
   if(state.picker){ $('#title').firstChild.textContent='Cueilleur'; html+=viewPicker(state.picker); }
-  else { $('#title').firstChild.textContent={jour:'Cueillette du jour',periode:'Période',cueilleurs:'Cueilleurs',lignes:'Lignes',equipe:'Équipe (Factorial)',planning:'Planning cueille'}[state.view]; html+={jour:viewJour,periode:viewPeriode,cueilleurs:viewCueilleurs,lignes:viewLignes,equipe:viewEquipe,planning:viewPlanning}[state.view](); }
+  else { $('#title').firstChild.textContent={jour:'Cueillette du jour',periode:'Période',cueilleurs:'Cueilleurs',lignes:'Lignes',equipe:'Équipe (Factorial)',planning:'Planning cueille',rendement:'Rendement cumulé'}[state.view]; html+={jour:viewJour,periode:viewPeriode,cueilleurs:viewCueilleurs,lignes:viewLignes,equipe:viewEquipe,planning:viewPlanning,rendement:viewRendement}[state.view](); }
   main.innerHTML=html; bind();
 }
 function kpis(t, pickers){
@@ -430,6 +435,59 @@ function viewPlanning(){
   return h;
 }
 
+// ---------- Rendement cumulé (kg et kg/m²) ----------
+const addDays=(d,n)=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+const dayDiff=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
+function yieldDaysNeeded(){ const d=state.data; if(!d||!state.yend||state.yend>=d.last_day) return state.ydays; return state.ydays+dayDiff(state.yend,d.last_day); }
+function yieldCalc(){
+  const d=state.data; const rooms=[...new Set(d.rooms.map(r=>r.room))].sort((a,b)=>roomOrder(a)-roomOrder(b));
+  if(!state.yroom){ const lr=roomsOf(d.last_day).slice().sort((a,b)=>(b.kg||0)-(a.kg||0)); state.yroom=lr.length?lr[0].room:'all'; }
+  if(state.yroom!=='all'&&!rooms.includes(state.yroom)) state.yroom='all';
+  const end=(state.yend&&state.yend<=d.last_day)?state.yend:d.last_day; const start=addDays(end,-(state.ydays-1));
+  const rows=d.rooms.filter(r=>(state.yroom==='all'||r.room===state.yroom)&&r.day>=start&&r.day<=end);
+  const nRooms=state.yroom==='all'?new Set(rows.map(r=>r.room)).size:1; const surf=state.yarea*Math.max(1,nRooms);
+  const days=[]; for(let x=start;x<=end;x=addDays(x,1)) days.push(x);
+  let cum=0; const per=days.map(day=>{ const rs=rows.filter(r=>r.day===day); const t=totals(rs); cum+=t.kg; return {day, rooms:[...new Set(rs.map(r=>r.room))].sort((a,b)=>roomOrder(a)-roomOrder(b)), mush:t.mush, hours:t.hours, kg:t.kg, kgm2:t.kg/surf, cum, cumm2:cum/surf}; });
+  const t=totals(rows); const nd=per.filter(p=>p.kg>0).length;
+  const fetchedFrom=addDays(d.last_day,-(state.loadedDays-1)); const partial=start<fetchedFrom;
+  return {rooms,start,end,rows,nRooms,surf,per,t,nd,partial,fetchedFrom};
+}
+function viewRendement(){
+  const d=state.data; const y=yieldCalc();
+  let h=`<div class="card"><div class="row" style="gap:10px;flex-wrap:wrap">
+      <label class="small muted" style="flex:1 1 120px">Salle<br><select id="yroom" style="width:100%;margin-top:3px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:15px"><option value="all" ${state.yroom==='all'?'selected':''}>Toutes les salles</option>${y.rooms.map(r=>`<option value="${r}" ${state.yroom===r?'selected':''}>${r}</option>`).join('')}</select></label>
+      <label class="small muted" style="flex:1 1 90px">Jours<br><input id="ydays" type="number" inputmode="numeric" min="1" max="62" step="1" value="${state.ydays}" style="width:100%;margin-top:3px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:15px"></label>
+      <label class="small muted" style="flex:1 1 90px">Surface m²${y.nRooms>1?' / salle':''}<br><input id="yarea" type="number" inputmode="decimal" min="1" step="1" value="${state.yarea}" style="width:100%;margin-top:3px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:15px"></label>
+    </div>
+    <div class="row" style="gap:10px;margin-top:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="seg" id="ydaysq" style="flex:1 1 200px;margin:0">${[7,14,21,31,42].map(n=>`<button data-ydays="${n}" class="${state.ydays===n?'on':''}">${n} j</button>`).join('')}</div>
+      <label class="small muted" style="flex:0 1 150px">Fin de période<br><input id="yend" type="date" max="${d.last_day}" value="${y.end}" style="width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:14px"></label>
+    </div></div>`;
+  h+=`<p class="help">${esc(fmt.day(y.start))} → ${esc(fmt.day(y.end))} · ${state.ydays} jour${state.ydays>1?'s':''} · ${y.nd} jour${y.nd>1?'s':''} de cueillette${state.yroom==='all'?` · ${y.nRooms} salle${y.nRooms>1?'s':''} × ${fmt.n(state.yarea)} m² = <b>${fmt.n(y.surf)} m²</b>`:` · <b>${fmt.n(y.surf)} m²</b>`}${y.partial?` <span style="color:var(--crit)">· données chargées à partir du ${esc(fmt.day(y.fetchedFrom))} seulement (max 62 j)</span>`:''}</p>`;
+  h+=`<div class="kpis">
+    <div class="kpi"><div class="v">${fmt.n(y.t.kg)}<span class="u">kg</span></div><div class="l">Kg cumulés</div></div>
+    <div class="kpi"><div class="v">${fmt.n(y.t.kg/y.surf,2)}<span class="u">kg/m²</span></div><div class="l">Rendement cumulé</div></div>
+    <div class="kpi"><div class="v">${fmt.k(y.t.mush)}</div><div class="l">Champignons</div></div>
+    <div class="kpi"><div class="v">${y.nd?fmt.n(y.t.kg/y.nd):'–'}<span class="u">kg</span></div><div class="l">Kg / jour cueilli</div></div>
+    <div class="kpi"><div class="v">${y.nd?fmt.n(y.t.kg/y.nd/y.surf,2):'–'}<span class="u">kg/m²</span></div><div class="l">Par jour cueilli</div></div>
+    <div class="kpi"><div class="v">${fmt.n(y.t.g,1)}<span class="u">g</span></div><div class="l">g / champignon</div></div>
+  </div>`;
+  if(y.rows.length){
+    h+=dayChart('ykg','Kg par jour', y.per.map(p=>({day:p.day,parts:[p.kg||0]})), ['var(--brown)'], ['Kg'], 0);
+    h+=dayChart('ycum','Kg/m² cumulés', y.per.map(p=>({day:p.day,parts:[p.cumm2||0]})), ['var(--beige)'], ['Kg/m² cumulés'], 2);
+  }
+  h+=`<div class="sec">Par jour</div><div class="card" style="padding:4px 10px"><table class="w" id="ytable"><thead><tr><th>Jour</th>${state.yroom==='all'?'<th>Salles</th>':''}<th>Kg</th><th>Kg/m²</th><th>Σ kg</th><th>Σ kg/m²</th></tr></thead><tbody>${y.per.map(p=>`<tr${p.kg?'':' class="muted"'}><td style="text-align:left">${esc(fmt.day(p.day))}</td>${state.yroom==='all'?`<td>${esc(p.rooms.join(' '))}</td>`:''}<td>${p.kg?fmt.n(p.kg):'–'}</td><td>${p.kg?fmt.n(p.kgm2,2):'–'}</td><td>${fmt.n(p.cum)}</td><td>${fmt.n(p.cumm2,2)}</td></tr>`).join('')}<tr style="font-weight:700"><td style="text-align:left">Total</td>${state.yroom==='all'?'<td></td>':''}<td>${fmt.n(y.t.kg)}</td><td>${fmt.n(y.t.kg/y.surf,2)}</td><td>${fmt.n(y.t.kg)}</td><td>${fmt.n(y.t.kg/y.surf,2)}</td></tr></tbody></table></div>`;
+  h+=`<div class="row" style="gap:8px;margin-top:10px"><button class="btn" id="ycsv" style="flex:1">Exporter CSV</button>${(navigator.share)?`<button class="btn" id="yshare" style="flex:1">Partager</button>`:''}</div>`;
+  h+=`<p class="help">Kg estimés Ridder (comptage × poids par calibre). kg/m² = kg ÷ surface${state.yroom==='all'?' (surface par salle × salles cueillies sur la période)':''}. Export CSV : séparateur « ; », virgule décimale — à joindre au dossier de fin de culture (cook-out).</p>`;
+  return h;
+}
+function yieldCsv(){
+  const y=yieldCalc(); const num=(v,d)=>(v==null||isNaN(v))?'':Number(v).toFixed(d).replace('.',',');
+  const lines=[`salle;debut;fin;jours;surface_m2;kg_total;kg_m2_total`, `${state.yroom==='all'?'Toutes':state.yroom};${y.start};${y.end};${state.ydays};${num(y.surf,0)};${num(y.t.kg,1)};${num(y.t.kg/y.surf,3)}`, '', 'jour;salles;champignons;heures;kg;kg_m2;cumul_kg;cumul_kg_m2'];
+  y.per.forEach(p=>lines.push(`${p.day};${p.rooms.join(' ')};${Math.round(p.mush||0)};${num(p.hours,2)};${num(p.kg,1)};${num(p.kgm2,3)};${num(p.cum,1)};${num(p.cumm2,3)}`));
+  return {name:`rendement_${state.yroom==='all'?'toutes-salles':state.yroom}_${y.start}_${y.end}.csv`, text:'\ufeff'+lines.join('\r\n')};
+}
+
 // ---------- charts (daily) ----------
 function dayChart(id, title, pts, colors, labels, dec=0, ref){
   const W=360,H=150,PL=36,PR=8,PT=10,PB=22; const n=pts.length; if(!n) return '';
@@ -459,7 +517,7 @@ function bindCharts(){
 // ---------- events ----------
 function bind(){
   document.querySelectorAll('[data-picker]').forEach(el=>el.addEventListener('click', ()=>{ state.picker=el.dataset.picker; window.scrollTo(0,0); render(); }));
-  document.querySelectorAll('#days button').forEach(b=>b.addEventListener('click', ()=>{ state.days=+b.dataset.days; try{localStorage.setItem('cueillette.days',state.days);}catch(e){} if(state.days>state.data.days) load(); else render(); }));
+  document.querySelectorAll('#days button').forEach(b=>b.addEventListener('click', ()=>{ state.days=+b.dataset.days; try{localStorage.setItem('cueillette.days',state.days);}catch(e){} if(state.days>state.loadedDays) load(); else render(); }));
   const pv=$('#prevDay'), nx=$('#nextDay'); const list=state.data?state.data.dayList:[];
   if(pv) pv.addEventListener('click', ()=>{ const i=list.indexOf(state.day); if(i>0){ state.day=list[i-1]; render(); } });
   if(nx) nx.addEventListener('click', ()=>{ const i=list.indexOf(state.day); if(i<list.length-1){ state.day=list[i+1]; render(); } });
@@ -468,8 +526,16 @@ function bind(){
   if(pe) pe.addEventListener('click', ()=>{ const i=ad.indexOf(state.eqDay); if(i>0){ state.eqDay=ad[i-1]; render(); } });
   if(ne) ne.addEventListener('click', ()=>{ const i=ad.indexOf(state.eqDay); if(i<ad.length-1){ state.eqDay=ad[i+1]; render(); } });
   const ef=$('#eff'); if(ef){ ef.addEventListener('input', ()=>{ state.eff=+ef.value; }); ef.addEventListener('change', ()=>{ state.eff=+ef.value; try{localStorage.setItem('cueillette.eff',state.eff);}catch(e){} render(); }); }
+  const yr=$('#yroom'); if(yr) yr.addEventListener('change', ()=>{ state.yroom=yr.value; render(); });
+  const yd=$('#ydays'); if(yd) yd.addEventListener('change', ()=>setYieldDays(+yd.value));
+  document.querySelectorAll('#ydaysq button').forEach(b=>b.addEventListener('click', ()=>setYieldDays(+b.dataset.ydays)));
+  const ya=$('#yarea'); if(ya) ya.addEventListener('change', ()=>{ const v=+ya.value; if(v>0){ state.yarea=v; try{localStorage.setItem('cueillette.yarea',v);}catch(e){} render(); } });
+  const ye=$('#yend'); if(ye) ye.addEventListener('change', ()=>{ state.yend=ye.value||null; if(yieldDaysNeeded()>state.loadedDays) load(); else render(); });
+  const yc=$('#ycsv'); if(yc) yc.addEventListener('click', ()=>{ const f=yieldCsv(); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([f.text],{type:'text/csv;charset=utf-8'})); a.download=f.name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1000); });
+  const ys=$('#yshare'); if(ys) ys.addEventListener('click', async ()=>{ const f=yieldCsv(); const file=new File([f.text],f.name,{type:'text/csv'}); try{ if(navigator.canShare&&navigator.canShare({files:[file]})) await navigator.share({files:[file],title:f.name}); else await navigator.share({title:f.name,text:f.text}); }catch(e){} });
   bindCharts();
 }
+function setYieldDays(n){ if(!(n>=1)) return; state.ydays=Math.min(62,Math.round(n)); try{localStorage.setItem('cueillette.ydays',state.ydays);}catch(e){} if(yieldDaysNeeded()>state.loadedDays) load(); else render(); }
 $('#backBtn').addEventListener('click', ()=>{ state.picker=null; render(); });
 $('#refreshBtn').addEventListener('click', ()=>load());
 document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.picker=null; window.scrollTo(0,0); render(); }));
