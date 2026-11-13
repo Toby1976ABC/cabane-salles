@@ -245,6 +245,7 @@ async function load(){
     j.pickers=(j.pickers||[]).map(a=>({day:a[0],no:a[1],name:a[2],rooms:a[3],mush:a[4],hours:a[5],per_min:a[6],kg:a[7],kg_h:a[8],vs:a[9]}));
     j.lines=(j.lines||[]).map(a=>({day:a[0],line:a[1],room:a[2],hours:a[3],mush:a[4],pct75:a[5],issue:a[6],not_sorting:a[7]}));
     j.dayList=[...new Set(j.rooms.map(r=>r.day))].sort();
+    j.crops=(j.crops||[]).map(a=>({room:a[0],week:a[1],start:a[2],end:a[3],transferred:a[4]}));
     const f=j.fact||{}; j.fact={synced_at:f.synced_at,
       planning:(f.planning||[]).map(a=>({day:a[0],team:a[1],grp:a[2],emp:a[3]||0,hours:+a[4]||0})),
       attendance:(f.attendance||[]).map(a=>({day:a[0],name:a[1],team:a[2],grp:a[3],worked:+a[4]||0,planned:a[5]==null?null:+a[5]})),
@@ -440,7 +441,35 @@ function viewPlanning(){
 // ---------- Rendement cumulé (kg et kg/m²) ----------
 const addDays=(d,n)=>{ const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
 const dayDiff=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5);
-function yieldDaysNeeded(){ const d=state.data; if(!d||!state.yend||state.yend>=d.last_day) return state.ydays; return state.ydays+dayDiff(state.yend,d.last_day); }
+function yieldDaysNeeded(){ const d=state.data; const base=state.view==='rendement'?Math.max(state.ydays,35):state.ydays; if(!d||!state.yend||state.yend>=d.last_day) return base; return base+dayDiff(state.yend,d.last_day); }
+// volées (flushes) de la culture en cours à la date de fin : groupes de jours de cueille >= 150 kg séparés par >= 4 jours
+function flushCalc(room,end){
+  const d=state.data; const all=d.rooms.filter(r=>r.room===room&&r.day<=end&&r.mush>0).sort((a,b)=>a.day<b.day?-1:1);
+  if(!all.length) return null;
+  const lastPick=all[all.length-1].day; const crops=d.crops.filter(c=>c.room===room);
+  const outs=crops.map(c=>c.end).filter(Boolean).sort();
+  const prev=outs.filter(x=>x<lastPick).pop()||null, next=outs.find(x=>x>=lastPick)||null;
+  const tr=crops.filter(c=>c.transferred&&c.start<=lastPick&&(!prev||c.start>prev)).map(c=>c.start).sort().pop()||null;
+  const fetchedFrom=addDays(d.last_day,-(state.loadedDays-1));
+  const start=tr||(prev?addDays(prev,1):null); const known=!!start&&start>=fetchedFrom;
+  let rows=all.filter(r=>(!prev||r.day>prev)&&(!tr||r.day>=tr));
+  if(!rows.length) return null;
+  let maj=rows.filter(r=>r.kg>=150); if(!maj.length) maj=rows;
+  let cl=0; const mc=maj.map((r,i)=>{ if(i&&dayDiff(maj[i-1].day,r.day)>=4) cl++; return {day:r.day,cl}; });
+  const clOf=day=>{ let best=mc[0]; mc.forEach(m=>{ if(Math.abs(dayDiff(m.day,day))<=Math.abs(dayDiff(best.day,day))) best=m; }); return best.cl; };
+  const c0=known?0:Math.max(0,cl-2);
+  const fl=[]; rows.forEach(r=>{ const c=clOf(r.day); if(c<c0) return; (fl[c-c0]||(fl[c-c0]={no:c-c0+1,rows:[]})).rows.push(r); });
+  const flushes=fl.filter(Boolean).map(f=>({no:f.no,first:f.rows[0].day,last:f.rows[f.rows.length-1].day,days:f.rows.length,t:totals(f.rows)}));
+  return {flushes,start:known?start:null,transfer:!!tr,next,estimated:!known,t:totals(fl.filter(Boolean).flatMap(f=>f.rows))};
+}
+function flushCard(y){
+  if(state.yroom==='all') return `<p class="help">Rendement par volée : choisir une salle.</p>`;
+  const f=flushCalc(state.yroom,y.end); if(!f) return '';
+  const a=state.yarea; const row=(lab,sub,t,b)=>`<tr${b?' style="font-weight:700"':''}><td style="text-align:left"><b>${lab}</b>${sub?`<small style="display:block;font-weight:400;color:var(--muted);font-size:11px">${sub}</small>`:''}</td><td>${fmt.n(t.kg/a,2)}</td><td>${fmt.n(t.mush/a)}</td><td>${fmt.n(t.g,1)}</td><td>${fmt.n(diam(t.n),1)}</td></tr>`;
+  let h=`<div class="sec">Rendement par volée — ${state.yroom}</div><div class="card" style="padding:4px 10px"><table class="w" id="ftable"><thead><tr><th>Volée</th><th>Kg/m²</th><th>Champ./m²</th><th>g moy.</th><th>Ø mm</th></tr></thead><tbody>${f.flushes.map(x=>row('F'+x.no,`${fmt.dm(x.first)} → ${fmt.dm(x.last)} · ${x.days} j`,x.t)).join('')}${f.flushes.length>1?row('Total','',f.t,1):''}</tbody></table></div>`;
+  h+=`<p class="help">${f.estimated?'Début de culture inconnu : 3 dernières volées (numérotation estimée)':'Culture depuis le '+esc(fmt.day(f.start))+(f.transfer?' (transfert)':' (après cook-out)')} · ${f.next?'cook-out le '+esc(fmt.day(f.next)):'culture en cours'} · surface ${fmt.n(a)} m². Volée = jours de cueille ≥ 150 kg séparés par 4 jours ou plus ; F1 = 1re volée.</p>`;
+  return h;
+}
 function yieldCalc(){
   const d=state.data; const rooms=[...new Set(d.rooms.map(r=>r.room))].sort((a,b)=>roomOrder(a)-roomOrder(b));
   if(!state.yroom){ const lr=roomsOf(d.last_day).slice().sort((a,b)=>(b.kg||0)-(a.kg||0)); state.yroom=lr.length?lr[0].room:'all'; }
@@ -474,6 +503,7 @@ function viewRendement(){
     <div class="kpi"><div class="v">${y.nd?fmt.n(y.t.kg/y.nd/y.surf,2):'–'}<span class="u">kg/m²</span></div><div class="l">Par jour cueilli</div></div>
     <div class="kpi"><div class="v">${fmt.n(y.t.g,1)}<span class="u">g</span></div><div class="l">g / champignon</div></div>
   </div>`;
+  h+=flushCard(y);
   if(y.rows.length){
     h+=dayChart('ykg','Kg par jour', y.per.map(p=>({day:p.day,parts:[p.kg||0]})), ['var(--brown)'], ['Kg'], 0);
     h+=dayChart('ycum','Kg/m² cumulés', y.per.map(p=>({day:p.day,parts:[p.cumm2||0]})), ['var(--beige)'], ['Kg/m² cumulés'], 2);
@@ -487,6 +517,8 @@ function yieldCsv(){
   const y=yieldCalc(); const num=(v,d)=>(v==null||isNaN(v))?'':Number(v).toFixed(d).replace('.',',');
   const lines=[`salle;debut;fin;jours;surface_m2;kg_total;kg_m2_total`, `${state.yroom==='all'?'Toutes':state.yroom};${y.start};${y.end};${state.ydays};${num(y.surf,0)};${num(y.t.kg,1)};${num(y.t.kg/y.surf,3)}`, '', 'jour;salles;champignons;heures;kg;kg_m2;cumul_kg;cumul_kg_m2'];
   y.per.forEach(p=>lines.push(`${p.day};${p.rooms.join(' ')};${Math.round(p.mush||0)};${num(p.hours,2)};${num(p.kg,1)};${num(p.kgm2,3)};${num(p.cum,1)};${num(p.cumm2,3)}`));
+  const f=state.yroom==='all'?null:flushCalc(state.yroom,y.end);
+  if(f){ lines.push('','volee;debut;fin;jours_cueille;kg;kg_m2;champignons_m2;g_champignon;diametre_mm'); f.flushes.forEach(x=>lines.push(`F${x.no};${x.first};${x.last};${x.days};${num(x.t.kg,1)};${num(x.t.kg/state.yarea,3)};${num(x.t.mush/state.yarea,1)};${num(x.t.g,1)};${num(diam(x.t.n),1)}`)); }
   return {name:`rendement_${state.yroom==='all'?'toutes-salles':state.yroom}_${y.start}_${y.end}.csv`, text:'\ufeff'+lines.join('\r\n')};
 }
 
@@ -540,7 +572,7 @@ function bind(){
 function setYieldDays(n){ if(!(n>=1)) return; state.ydays=Math.min(62,Math.round(n)); try{localStorage.setItem('cueillette.ydays',state.ydays);}catch(e){} if(yieldDaysNeeded()>state.loadedDays) load(); else render(); }
 $('#backBtn').addEventListener('click', ()=>{ state.picker=null; render(); });
 $('#refreshBtn').addEventListener('click', ()=>load());
-document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.picker=null; window.scrollTo(0,0); render(); }));
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.picker=null; window.scrollTo(0,0); if(state.data&&yieldDaysNeeded()>state.loadedDays) load(); else render(); }));
 // swipe between days on the Jour tab
 let sx=null, sy=null;
 document.addEventListener('touchstart', e=>{ if(state.view!=='jour'||state.picker||e.target.closest('svg.plot')) {sx=null;return;} sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
