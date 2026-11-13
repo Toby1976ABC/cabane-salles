@@ -255,7 +255,9 @@ async function load(){
     state.data=j; state.loadedDays=j.days||want; state.error=null; state.lastFetch=Date.now();
     if(!state.day || !j.dayList.includes(state.day)) state.day=j.last_day||j.dayList[j.dayList.length-1];
   }catch(e){ state.error = e.message || String(e); }
-  state.loading=false; render();
+  state.loading=false;
+  if(state.data&&!state.error&&state.loadedDays<62&&yieldDaysNeeded()>state.loadedDays) return load();
+  render();
 }
 const roomsOf = day => state.data.rooms.filter(r=>r.day===day).sort((a,b)=>roomOrder(a.room)-roomOrder(b.room));
 function totals(rows){
@@ -572,7 +574,7 @@ function bind(){
 function setYieldDays(n){ if(!(n>=1)) return; state.ydays=Math.min(62,Math.round(n)); try{localStorage.setItem('cueillette.ydays',state.ydays);}catch(e){} if(yieldDaysNeeded()>state.loadedDays) load(); else render(); }
 $('#backBtn').addEventListener('click', ()=>{ state.picker=null; render(); });
 $('#refreshBtn').addEventListener('click', ()=>load());
-document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.picker=null; window.scrollTo(0,0); if(state.data&&yieldDaysNeeded()>state.loadedDays) load(); else render(); }));
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.picker=null; window.scrollTo(0,0); render(); if(state.data&&yieldDaysNeeded()>state.loadedDays) load(); }));
 // swipe between days on the Jour tab
 let sx=null, sy=null;
 document.addEventListener('touchstart', e=>{ if(state.view!=='jour'||state.picker||e.target.closest('svg.plot')) {sx=null;return;} sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
