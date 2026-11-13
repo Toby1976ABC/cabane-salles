@@ -284,14 +284,16 @@ function render(){
   else { $('#title').firstChild.textContent={jour:'Cueillette du jour',periode:'Période',cueilleurs:'Cueilleurs',lignes:'Lignes',equipe:'Équipe (Factorial)',planning:'Planning cueille',rendement:'Rendement cumulé'}[state.view]; html+={jour:viewJour,periode:viewPeriode,cueilleurs:viewCueilleurs,lignes:viewLignes,equipe:viewEquipe,planning:viewPlanning,rendement:viewRendement}[state.view](); }
   main.innerHTML=html; bind();
 }
-function kpis(t, pickers){
+const diam=n=>{ const tot=sum(n); return tot?sum(n.map((v,i)=>v*CAL[i]))/tot:null; };
+function kpis(t, pickers, withDiam){
   return `<div class="kpis">
     <div class="kpi"><div class="v">${fmt.k(t.mush)}</div><div class="l">Champignons</div></div>
     <div class="kpi"><div class="v">${fmt.n(t.kg)}<span class="u">kg</span></div><div class="l">Kg estimés</div></div>
     <div class="kpi"><div class="v">${pickers!=null?fmt.n(pickers):'–'}</div><div class="l">Cueilleurs</div></div>
     <div class="kpi"><div class="v">${fmt.n(t.kg_h,1)}</div><div class="l">Kg/h moyen</div></div>
     <div class="kpi"><div class="v">${fmt.n(t.per_min,1)}</div><div class="l">Champ./min</div></div>
-    <div class="kpi"><div class="v">${fmt.n(t.g,1)}<span class="u">g</span></div><div class="l">g / champignon</div></div>
+    <div class="kpi"><div class="v">${fmt.n(t.g,1)}<span class="u">g</span></div><div class="l">g / champignon</div></div>${withDiam?`
+    <div class="kpi"><div class="v">${fmt.n(diam(t.n),1)}<span class="u">mm</span></div><div class="l">Diamètre moyen</div></div>`:''}
   </div>`;
 }
 function calBar(n, labels){
@@ -304,7 +306,7 @@ function calBars(n){
 }
 function roomCard(r){
   return `<div class="rc"><div class="top"><span class="name">${r.room}</span><span class="small muted">${fmt.n(r.pickers)} cueilleur${r.pickers>1?'s':''} · ${fmt.n(r.hours,1)} h</span><span class="kg">${fmt.n(r.kg)} <small>kg</small></span></div>
-    <div class="vals"><span>Champignons <b>${fmt.k(r.mush)}</b></span><span>Kg/h <b>${fmt.n(r.kg_h,1)}</b></span><span>Champ./min <b>${fmt.n(r.per_min,1)}</b></span><span>g moyen <b>${fmt.n(r.g_avg,1)}</b></span></div>
+    <div class="vals"><span>Champignons <b>${fmt.k(r.mush)}</b></span><span>Kg/h <b>${fmt.n(r.kg_h,1)}</b></span><span>Champ./min <b>${fmt.n(r.per_min,1)}</b></span><span>g moyen <b>${fmt.n(r.g_avg,1)}</b></span><span>Diamètre moyen <b>${fmt.n(diam(r.n),1)} mm</b></span></div>
     ${calBars(r.n)}${r.not_sorting?`<div class="small" style="color:var(--crit);margin-top:4px">${r.not_sorting} ligne${r.not_sorting>1?'s':''} sans tri</div>`:''}</div>`;
 }
 function viewJour(){
@@ -312,7 +314,7 @@ function viewJour(){
   const rows=roomsOf(state.day); const t=totals(rows);
   const pk=d.pickers.filter(p=>p.day===state.day).sort((a,b)=>(b.kg||0)-(a.kg||0));
   let h=`<div class="daynav"><button id="prevDay" ${i<=0?'disabled':''}>‹</button><div class="d">${esc(fmt.dayLong(state.day))}</div><button id="nextDay" ${i>=list.length-1?'disabled':''}>›</button></div>`;
-  h+=kpis(t, new Set(pk.map(p=>p.no)).size||null);
+  h+=kpis(t, new Set(pk.map(p=>p.no)).size||null, true);
   h+=`<div class="sec">Par salle</div>`+ (rows.length? rows.map(roomCard).join('') : '<div class="empty">Pas de cueillette ce jour</div>');
   if(pk.length){ h+=`<div class="sec">Cueilleurs du jour (${pk.length})</div><div class="card" style="padding:4px 10px"><table class="w p"><thead><tr><th>Nom</th><th>H</th><th>Kg</th><th>Kg/h</th><th>vs salle</th></tr></thead><tbody>${pk.map(p=>`<tr data-picker="${p.no}"><td class="nm">${esc(p.name)}<small>${p.no} · ${esc(p.rooms||'')}</small></td><td>${fmt.n(p.hours,1)}</td><td>${fmt.n(p.kg)}</td><td>${fmt.n(p.kg_h,1)}</td><td><span class="vs" style="background:${vsColor(p.vs)}">${p.vs!=null?fmt.n(p.vs):'–'}</span></td></tr>`).join('')}</tbody></table></div>`; }
   return h;
