@@ -467,7 +467,7 @@ function viewRendement(){
   h+=`<div class="kpis">
     <div class="kpi"><div class="v">${fmt.n(y.t.kg)}<span class="u">kg</span></div><div class="l">Kg cumulés</div></div>
     <div class="kpi"><div class="v">${fmt.n(y.t.kg/y.surf,2)}<span class="u">kg/m²</span></div><div class="l">Rendement cumulé</div></div>
-    <div class="kpi"><div class="v">${fmt.k(y.t.mush)}</div><div class="l">Champignons</div></div>
+    <div class="kpi"><div class="v">${fmt.n(y.t.mush/y.surf)}</div><div class="l">Champignons/m²</div></div>
     <div class="kpi"><div class="v">${y.nd?fmt.n(y.t.kg/y.nd):'–'}<span class="u">kg</span></div><div class="l">Kg / jour cueilli</div></div>
     <div class="kpi"><div class="v">${y.nd?fmt.n(y.t.kg/y.nd/y.surf,2):'–'}<span class="u">kg/m²</span></div><div class="l">Par jour cueilli</div></div>
     <div class="kpi"><div class="v">${fmt.n(y.t.g,1)}<span class="u">g</span></div><div class="l">g / champignon</div></div>
