@@ -226,7 +226,7 @@ const esc = s => String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>
 const roomOrder = n => (n[0]==='P'?0:1000)+parseInt(n.slice(1),10);
 const sum=(a,f)=>a.reduce((s,x)=>s+(f?f(x):x)||0,0);
 
-const state = { data:null, view:'jour', day:null, days:7, picker:null, loading:false, error:null, lastFetch:0, loginError:'', eff:85, eqDay:null, ydays:7, yarea:580, yroom:null, yend:null, loadedDays:0 };
+const state = { room:null, lh:1, lines:null, data:null, view:'jour', day:null, days:7, picker:null, loading:false, error:null, lastFetch:0, loginError:'', eff:85, eqDay:null, ydays:7, yarea:580, yroom:null, yend:null, loadedDays:0 };
 try { const e=localStorage.getItem('cueillette.eff'); if(e) state.eff=+e; } catch(e){}
 try { const d=localStorage.getItem('cueillette.days'); if(d) state.days=+d; } catch(e){}
 try { const y=localStorage.getItem('cueillette.ydays'); if(y) state.ydays=Math.min(62,Math.max(1,+y)); const a=localStorage.getItem('cueillette.yarea'); if(a) state.yarea=+a; } catch(e){}
@@ -275,7 +275,7 @@ const vsColor = v => v==null?'var(--muted)': v>=110?'#2e9b3a': v>=95?'#8ab02a': 
 // ---------- rendering ----------
 function render(){
   const d = state.data;
-  $('#backBtn').classList.toggle('hidden', !state.picker);
+  $('#backBtn').classList.toggle('hidden', !state.picker&&!state.room);
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.tab===state.view));
   const sub = $('#subtitle');
   if(state.loading && !d) sub.innerHTML = '<span class="spin"></span>';
@@ -284,6 +284,7 @@ function render(){
   if(!d){ main.innerHTML = state.error ? `<div class="err">${esc(state.error)}</div>` : '<div class="empty">Chargement…</div>'; return; }
   let html = state.error ? `<div class="err">${esc(state.error)}</div>` : '';
   if(state.picker){ $('#title').firstChild.textContent='Cueilleur'; html+=viewPicker(state.picker); }
+  else if(state.room){ $('#title').firstChild.textContent='Lignes '+state.room; html+=viewRoomLines(); }
   else { $('#title').firstChild.textContent={jour:'Cueillette du jour',periode:'Période',cueilleurs:'Cueilleurs',lignes:'Lignes',equipe:'Équipe (Factorial)',planning:'Planning cueille',rendement:'Rendement cumulé'}[state.view]; html+={jour:viewJour,periode:viewPeriode,cueilleurs:viewCueilleurs,lignes:viewLignes,equipe:viewEquipe,planning:viewPlanning,rendement:viewRendement}[state.view](); }
   main.innerHTML=html; bind();
 }
@@ -308,9 +309,48 @@ function calBars(n){
   return `<div style="margin-top:6px">${n.map((v,i)=>`<div class="hbar hb2"><span>${CAL[i]} mm</span><div class="bw"><i style="width:${(100*(v/tot)/mx).toFixed(1)}%;background:${CALC[i]}"></i></div><span class="pc">${(100*v/tot).toFixed(0)} %</span></div>`).join('')}</div>`;
 }
 function roomCard(r){
-  return `<div class="rc"><div class="top"><span class="name">${r.room}</span><span class="small muted">${fmt.n(r.pickers)} cueilleur${r.pickers>1?'s':''} · ${fmt.n(r.hours,1)} h</span><span class="kg">${fmt.n(r.kg)} <small>kg</small></span></div>
+  return `<div class="rc" data-room="${r.room}" style="cursor:pointer"><div class="top"><span class="name">${r.room}</span><span class="small muted">${fmt.n(r.pickers)} cueilleur${r.pickers>1?'s':''} · ${fmt.n(r.hours,1)} h</span><span class="kg">${fmt.n(r.kg)} <small>kg</small></span></div>
     <div class="vals"><span>Champignons <b>${fmt.k(r.mush)}</b></span><span>Kg/h <b>${fmt.n(r.kg_h,1)}</b></span><span>Champ./min <b>${fmt.n(r.per_min,1)}</b></span><span>g moyen <b>${fmt.n(r.g_avg,1)}</b></span><span>Diamètre moyen <b>${fmt.n(diam(r.n),1)} mm</b></span></div>
-    ${calBars(r.n)}${r.not_sorting?`<div class="small" style="color:var(--crit);margin-top:4px">${r.not_sorting} ligne${r.not_sorting>1?'s':''} sans tri</div>`:''}</div>`;
+    ${calBars(r.n)}${r.not_sorting?`<div class="small" style="color:var(--crit);margin-top:4px">${r.not_sorting} ligne${r.not_sorting>1?'s':''} sans tri</div>`:''}<div class="small" style="color:var(--brown);text-align:right;margin-top:4px">Détail par ligne ›</div></div>`;
+}
+// ---------- détail d'une salle : lignes et salariés sur les N dernières heures ----------
+async function loadLines(){
+  const key=state.day+'|'+state.room; state.lines={key,loading:true}; render();
+  try{
+    const r=await fetch(`${API}?lines=1&k=${encodeURIComponent(KEY)}&day=${state.day}&room=${state.room}`,{cache:'no-store'});
+    const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||('Erreur '+r.status));
+    const segs=(j.segs||[]).map(a=>({line:a[0],no:a[1],name:a[2],s:a[3]*1000,e:(a[3]+a[4]+a[5])*1000,paid:a[4],n:[a[6],a[7],a[8],a[9],a[10],a[11]],tot:a[12]})).filter(x=>x.e>x.s);
+    if(state.lines&&state.lines.key===key) state.lines={key,segs,now:(j.now||0)*1000};
+  }catch(e){ if(state.lines&&state.lines.key===key) state.lines={key,error:e.message||String(e)}; }
+  render();
+}
+function linesCalc(){
+  const L=state.lines; if(!L||!L.segs||!L.segs.length) return null;
+  const end=Math.min(L.now||Infinity, Math.max(...L.segs.map(x=>x.e))); const start=end-state.lh*3600e3;
+  const m={};
+  L.segs.forEach(x=>{ const ov=Math.min(x.e,end)-Math.max(x.s,start); if(ov<=0) return; const f=ov/(x.e-x.s);
+    const l=m[x.line]||(m[x.line]={line:x.line,mush:0,min:0,n:[0,0,0,0,0,0],emp:{}}); const p=l.emp[x.no]||(l.emp[x.no]={no:x.no,name:x.name,mush:0,min:0,n:[0,0,0,0,0,0]});
+    [l,p].forEach(o=>{ o.mush+=x.tot*f; o.min+=x.paid/60*f; x.n.forEach((v,i)=>o.n[i]+=v*f); }); });
+  const fin=o=>({...o,per_min:o.min>0?o.mush/o.min:null,diam:diam(o.n)});
+  const lines=Object.values(m).sort((a,b)=>a.line-b.line).map(l=>({...fin(l),emp:Object.values(l.emp).map(fin).sort((a,b)=>b.mush-a.mush)}));
+  return {start,end,lines};
+}
+function viewRoomLines(){
+  const L=state.lines; const hm=t=>new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:TZ});
+  let h=`<div class="card"><div style="font-size:18px;font-weight:700">${state.room} · ${esc(fmt.dayLong(state.day))}</div><div class="small muted" style="margin:2px 0 8px">Moyenne par ligne et par salarié sur les dernières heures de cueille</div><div class="seg" id="lh">${[1,2,3,4,5,6,7,8].map(n=>`<button data-lh="${n}" class="${state.lh===n?'on':''}">${n} h</button>`).join('')}</div></div>`;
+  if(!L||L.loading) return h+'<div class="empty"><span class="spin"></span></div>';
+  if(L.error) return h+`<div class="err">${esc(L.error)}</div>`;
+  const c=linesCalc(); if(!c||!c.lines.length) return h+'<div class="empty">Aucun enregistrement Ridder pour cette salle ce jour</div>';
+  h+=`<p class="help">Fenêtre ${hm(c.start)} → ${hm(c.end)} (fin = dernier enregistrement de la salle). Les enregistrements à cheval sur la fenêtre sont comptés au prorata.</p>`;
+  // one vertical bar per line: champ./min, average diameter under the bar
+  const W=360,H=180,PL=30,PR=8,PT=22,PB=36; const n=c.lines.length; const hi=(Math.max(...c.lines.map(l=>l.per_min||0))||1)*1.1; const Y=v=>PT+(hi-v)/hi*(H-PT-PB);
+  const bw=(W-PL-PR)/n, bar=Math.min(64,bw*0.6);
+  let g=niceTicks(0,hi,4).map(v=>`<line class="grid" x1="${PL}" x2="${W-PR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${PL-4}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" style="font-size:10px">${fmt.n(v)}</text>`).join('');
+  let body=''; c.lines.forEach((l,i)=>{ const cx=PL+bw*i+bw/2, v=l.per_min||0;
+    body+=`<rect x="${(cx-bar/2).toFixed(1)}" y="${Y(v).toFixed(1)}" width="${bar.toFixed(1)}" height="${Math.max(0,Y(0)-Y(v)).toFixed(1)}" fill="var(--brown)" rx="3"/><text x="${cx.toFixed(1)}" y="${(Y(v)-5).toFixed(1)}" text-anchor="middle" style="font-weight:700;fill:var(--ink);font-size:12px">${fmt.n(l.per_min,1)}</text><text x="${cx.toFixed(1)}" y="${H-PB+14}" text-anchor="middle" style="font-weight:600;fill:var(--ink);font-size:11px">Ligne ${l.line%10||l.line}</text><text x="${cx.toFixed(1)}" y="${H-PB+28}" text-anchor="middle" style="font-size:10.5px">Ø ${fmt.n(l.diam,1)} mm</text>`; });
+  h+=`<div class="card chart"><h3>Champignons / minute par ligne</h3><svg viewBox="0 0 ${W} ${H}" id="lchart"><g>${g}</g><line class="axis" x1="${PL}" x2="${W-PR}" y1="${H-PB}" y2="${H-PB}"/><g>${body}</g></svg></div>`;
+  c.lines.forEach(l=>{ h+=`<div class="sec">Ligne ${l.line%10||l.line} <span class="muted" style="font-weight:400;text-transform:none">(n° ${l.line}) · ${fmt.n(l.per_min,1)} champ./min · Ø ${fmt.n(l.diam,1)} mm</span></div><div class="card" style="padding:4px 10px"><table class="w p ltab"><thead><tr><th>Salarié</th><th>Champ./min</th><th>Ø mm</th><th>Champ.</th><th>Min</th></tr></thead><tbody>${l.emp.map(p=>`<tr data-picker="${p.no}"><td class="nm">${esc(p.name)}<small>${p.no}</small></td><td><b>${fmt.n(p.per_min,1)}</b></td><td><b>${fmt.n(p.diam,1)}</b></td><td>${fmt.n(p.mush)}</td><td>${fmt.n(p.min)}</td></tr>`).join('')}</tbody></table></div>`; });
+  return h;
 }
 function viewJour(){
   const d=state.data; const list=d.dayList; const i=list.indexOf(state.day);
@@ -553,6 +593,8 @@ function bindCharts(){
 // ---------- events ----------
 function bind(){
   document.querySelectorAll('[data-picker]').forEach(el=>el.addEventListener('click', ()=>{ state.picker=el.dataset.picker; window.scrollTo(0,0); render(); }));
+  document.querySelectorAll('[data-room]').forEach(el=>el.addEventListener('click', ()=>{ state.room=el.dataset.room; state.lh=1; window.scrollTo(0,0); loadLines(); }));
+  document.querySelectorAll('#lh button').forEach(b=>b.addEventListener('click', ()=>{ state.lh=+b.dataset.lh; render(); }));
   document.querySelectorAll('#days button').forEach(b=>b.addEventListener('click', ()=>{ state.days=+b.dataset.days; try{localStorage.setItem('cueillette.days',state.days);}catch(e){} if(state.days>state.loadedDays) load(); else render(); }));
   const pv=$('#prevDay'), nx=$('#nextDay'); const list=state.data?state.data.dayList:[];
   if(pv) pv.addEventListener('click', ()=>{ const i=list.indexOf(state.day); if(i>0){ state.day=list[i-1]; render(); } });
@@ -572,12 +614,12 @@ function bind(){
   bindCharts();
 }
 function setYieldDays(n){ if(!(n>=1)) return; state.ydays=Math.min(62,Math.round(n)); try{localStorage.setItem('cueillette.ydays',state.ydays);}catch(e){} if(yieldDaysNeeded()>state.loadedDays) load(); else render(); }
-$('#backBtn').addEventListener('click', ()=>{ state.picker=null; render(); });
-$('#refreshBtn').addEventListener('click', ()=>load());
-document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.picker=null; window.scrollTo(0,0); render(); if(state.data&&yieldDaysNeeded()>state.loadedDays) load(); }));
+$('#backBtn').addEventListener('click', ()=>{ if(state.picker) state.picker=null; else state.room=null; render(); });
+$('#refreshBtn').addEventListener('click', ()=>{ load(); if(state.room&&!state.picker) loadLines(); });
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click', ()=>{ state.view=b.dataset.tab; state.picker=null; state.room=null; window.scrollTo(0,0); render(); if(state.data&&yieldDaysNeeded()>state.loadedDays) load(); }));
 // swipe between days on the Jour tab
 let sx=null, sy=null;
-document.addEventListener('touchstart', e=>{ if(state.view!=='jour'||state.picker||e.target.closest('svg.plot')) {sx=null;return;} sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
+document.addEventListener('touchstart', e=>{ if(state.view!=='jour'||state.picker||state.room||e.target.closest('svg.plot')) {sx=null;return;} sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
 document.addEventListener('touchend', e=>{ if(sx==null) return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy; sx=null; if(Math.abs(dx)>70&&Math.abs(dy)<50){ const l=state.data.dayList; const i=l.indexOf(state.day); const j=dx<0?i+1:i-1; if(j>=0&&j<l.length){ state.day=l[j]; window.scrollTo(0,0); render(); } } }, {passive:true});
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && Date.now()-state.lastFetch>10*60e3) load(); });
 function showLogin(){
